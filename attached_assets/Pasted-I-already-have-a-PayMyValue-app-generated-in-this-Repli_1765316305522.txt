@@ -1,0 +1,68 @@
+I already have a PayMyValue app generated in this Replit.
+Update the landing page so the main call-to-action is a free AI pre-qualification estimate before the paid appraisal.
+
+Requirements:
+
+Hero section
+
+Keep the PayMyValue branding and current layout, but change the copy so it leads with the free estimate.
+
+Headline: “See Your Car’s Lost Value In Seconds”
+
+Subheadline: “Check if you’re pre-qualified for a diminished value payout with a free AI-powered estimate. Then upgrade to a certified appraisal and demand letter in minutes, not days.”
+
+Primary button (bright): “Get My Free Estimate (30 seconds)”
+
+Secondary button (outline): “Start Full Appraisal ($299)”
+
+Small line under the buttons: “Average diminished value check: $3,400 • Specialized in GA, FL, NC”.
+
+Free pre-qualification flow
+
+When the user clicks “Get My Free Estimate”, open a slide-in panel or modal on the right side with a short form.
+
+Form fields:
+
+Year (number)
+
+Make (text)
+
+Model (text)
+
+Current mileage (number)
+
+Number of previous reported accidents (0, 1, 2+)
+
+State (GA, FL, NC dropdown)
+
+On submit, do not create a full case. Instead, run a simple function that returns a generic diminished value range (for now you can hard-code a simple formula based on year, mileage, and accidents).
+
+Show a result screen inside the panel with text like:
+
+“Based on your answers, your estimated diminished value range is: $X – $Y.”
+
+Make the range visually prominent in a card.
+
+Add a small disclaimer: “This is an informational estimate only, not a certified appraisal.”
+
+Upsell to paid appraisal
+
+Under the range, add a bold CTA button:
+
+“Generate My Certified Appraisal & Demand Letter ($299)”
+
+When clicked, route the user into the existing signup / login + full appraisal flow (or to a placeholder “Full Appraisal Coming Soon” page if payment is not implemented yet).
+
+Visual style
+
+Use a dark, futuristic gradient in the hero and pre-qual panel so it feels like cutting-edge AI technology.
+
+Use a glassmorphism style card for the estimate result (semi-transparent dark background, subtle border, and glow).
+
+Make sure this integrates cleanly with the existing Tailwind/React setup and doesn’t break the rest of the app.
+
+Please:
+
+Create any new React components you need (e.g., PrequalForm), wire them into the existing landing page, and update routes as needed.
+
+Keep the code well-commented so I can easily see where to adjust the estimate formula and the upgrade CTA behavior later.

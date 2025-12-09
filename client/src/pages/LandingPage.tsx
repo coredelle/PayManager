@@ -1,47 +1,71 @@
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { CheckCircle2, DollarSign, FileText, ArrowRight, ShieldCheck } from "lucide-react";
+import { CheckCircle2, DollarSign, FileText, ArrowRight, ShieldCheck, Sparkles } from "lucide-react";
 import { Link } from "wouter";
 import heroImage from "@assets/generated_images/professional_automotive_financial_abstract_background.png";
+import aiHeroBg from "@assets/generated_images/dark_futuristic_financial_ai_abstract_background.png";
+import { useState } from "react";
+import { PrequalModal } from "@/components/features/PrequalModal";
 
 export default function LandingPage() {
+  const [showPrequal, setShowPrequal] = useState(false);
+
   return (
     <div className="flex flex-col gap-20 pb-20">
+      <PrequalModal isOpen={showPrequal} onOpenChange={setShowPrequal} />
+
       {/* Hero Section */}
-      <section className="relative pt-20 pb-32 overflow-hidden bg-slate-900 text-white">
-        <div className="absolute inset-0 z-0 opacity-40">
-           <img src={heroImage} alt="Abstract Automotive Background" className="w-full h-full object-cover" />
-           <div className="absolute inset-0 bg-gradient-to-r from-slate-900 via-slate-900/90 to-transparent"></div>
+      <section className="relative pt-24 pb-36 overflow-hidden bg-slate-950 text-white">
+        <div className="absolute inset-0 z-0">
+           {/* Fallback color if image fails to load, plus the AI gradient image */}
+           <div className="absolute inset-0 bg-slate-950" />
+           <img src={aiHeroBg} alt="AI Technology Background" className="w-full h-full object-cover opacity-60" />
+           {/* Gradient overlays for readability */}
+           <div className="absolute inset-0 bg-gradient-to-r from-slate-950 via-slate-950/80 to-transparent"></div>
+           <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-transparent to-transparent"></div>
         </div>
         
         <div className="container mx-auto px-4 relative z-10">
-          <div className="max-w-2xl animate-in slide-in-from-left-4 duration-700 fade-in">
-            <Badge variant="outline" className="text-blue-200 border-blue-400/30 mb-6 py-1 px-3 text-sm">
-              Accepted by Major Insurers
-            </Badge>
-            <h1 className="text-5xl md:text-6xl font-serif font-bold leading-tight mb-6">
-              Recover Your Car's <span className="text-blue-400">Lost Value</span>
+          <div className="max-w-3xl animate-in slide-in-from-left-4 duration-700 fade-in">
+            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full border border-emerald-500/30 bg-emerald-500/10 text-emerald-400 text-sm font-medium mb-6 backdrop-blur-sm">
+              <Sparkles className="h-3 w-3" />
+              AI-Powered Valuation Engine
+            </div>
+            
+            <h1 className="text-5xl md:text-7xl font-serif font-bold leading-tight mb-6 tracking-tight">
+              See Your Car’s <span className="text-transparent bg-clip-text bg-gradient-to-r from-emerald-400 to-blue-500">Lost Value</span> In Seconds
             </h1>
-            <p className="text-xl text-slate-300 mb-8 leading-relaxed">
-              Don't settle for the insurance company's first offer. We generate professional diminished value appraisals and demand letters that help you get paid what you deserve.
+            
+            <p className="text-xl text-slate-300 mb-10 leading-relaxed max-w-2xl">
+              Check if you’re pre-qualified for a diminished value payout with a free AI-powered estimate. Then upgrade to a certified appraisal and demand letter in minutes, not days.
             </p>
-            <div className="flex flex-col sm:flex-row gap-4">
+            
+            <div className="flex flex-col sm:flex-row gap-5">
+              <Button 
+                size="lg" 
+                onClick={() => setShowPrequal(true)}
+                className="bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold text-lg px-8 h-14 shadow-[0_0_20px_rgba(16,185,129,0.3)] border border-emerald-400/50"
+              >
+                Get My Free Estimate (30s)
+                <ArrowRight className="ml-2 h-5 w-5" />
+              </Button>
+              
               <Link href="/dashboard">
-                <Button size="lg" className="bg-blue-600 hover:bg-blue-500 text-lg px-8 h-12">
-                  Start Your Appraisal
-                  <ArrowRight className="ml-2 h-5 w-5" />
-                </Button>
-              </Link>
-              <Link href="/auth">
-                <Button variant="outline" size="lg" className="text-white border-white/20 hover:bg-white/10 h-12">
-                  Login to Account
+                <Button variant="outline" size="lg" className="text-white border-white/20 hover:bg-white/10 h-14 text-base backdrop-blur-sm">
+                  Start Full Appraisal ($299)
                 </Button>
               </Link>
             </div>
-            <p className="mt-6 text-sm text-slate-400 flex items-center gap-2">
-              <CheckCircle2 className="h-4 w-4 text-emerald-500" /> No credit card required to start
-            </p>
+            
+            <div className="mt-8 flex items-center gap-4 text-sm font-medium text-slate-400">
+              <div className="flex items-center gap-2">
+                <span className="h-1.5 w-1.5 rounded-full bg-emerald-500"></span>
+                Average check: $3,400
+              </div>
+              <div className="h-4 w-px bg-slate-800"></div>
+              <div>Specialized in GA, FL, NC</div>
+            </div>
           </div>
         </div>
       </section>

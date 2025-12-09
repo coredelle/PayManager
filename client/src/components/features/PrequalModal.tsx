@@ -1,0 +1,236 @@
+import { useState } from "react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
+import { Card, CardContent } from "@/components/ui/card";
+import { Sparkles, ArrowRight, X, AlertCircle } from "lucide-react";
+import { Link } from "wouter";
+import { cn } from "@/lib/utils";
+
+interface PrequalModalProps {
+  isOpen: boolean;
+  onOpenChange: (open: boolean) => void;
+}
+
+export function PrequalModal({ isOpen, onOpenChange }: PrequalModalProps) {
+  const [step, setStep] = useState<"form" | "result">("form");
+  const [loading, setLoading] = useState(false);
+  const [estimate, setEstimate] = useState<{ min: number; max: number } | null>(null);
+
+  const [formData, setFormData] = useState({
+    year: "",
+    make: "",
+    model: "",
+    mileage: "",
+    accidents: "0",
+    state: "GA"
+  });
+
+  const handleCalculate = (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+
+    // MOCK CALCULATION LOGIC
+    // This is a simple placeholder formula.
+    // In a real app, this would likely call an API endpoint.
+    setTimeout(() => {
+      const year = parseInt(formData.year) || 2020;
+      const mileage = parseInt(formData.mileage) || 50000;
+      const accidents = parseInt(formData.accidents) || 0;
+
+      // Base value assumption (very rough mock)
+      let baseValue = 30000; 
+      baseValue -= (2025 - year) * 2000; // Depreciate by year
+      baseValue -= (mileage / 10000) * 500; // Depreciate by mileage
+
+      // Diminished Value Estimate (approx 10-15% of value for 1 accident)
+      let minDV = baseValue * 0.10;
+      let maxDV = baseValue * 0.15;
+
+      // Adjust for multiple accidents (usually worth less DV on subsequent claims)
+      if (accidents > 0) {
+        minDV *= 0.5;
+        maxDV *= 0.5;
+      }
+
+      setEstimate({
+        min: Math.round(minDV / 100) * 100, // Round to nearest 100
+        max: Math.round(maxDV / 100) * 100
+      });
+      setLoading(false);
+      setStep("result");
+    }, 1500); // Fake "AI processing" delay
+  };
+
+  const reset = () => {
+    setStep("form");
+    setEstimate(null);
+  };
+
+  return (
+    <Sheet open={isOpen} onOpenChange={onOpenChange}>
+      <SheetContent className="w-full sm:max-w-md bg-slate-950 border-slate-800 text-white p-0 overflow-y-auto">
+        <div className="relative h-full flex flex-col">
+          {/* Background Gradient */}
+          <div className="absolute inset-0 bg-gradient-to-br from-indigo-900/20 via-slate-900/50 to-emerald-900/20 pointer-events-none" />
+          
+          <div className="relative z-10 p-6 flex-1 flex flex-col">
+            <div className="flex justify-between items-center mb-6">
+              <div className="flex items-center gap-2 text-emerald-400 font-medium text-sm border border-emerald-500/30 bg-emerald-500/10 px-3 py-1 rounded-full">
+                <Sparkles className="h-3 w-3" /> AI Estimate
+              </div>
+              {/* Close button is handled by Sheet primitive, but we can add a custom one if needed */}
+            </div>
+
+            {step === "form" ? (
+              <div className="space-y-6 animate-in slide-in-from-right-4 fade-in duration-500">
+                <SheetHeader className="text-left space-y-4">
+                  <SheetTitle className="text-3xl font-serif text-white">Check Your Eligibility</SheetTitle>
+                  <SheetDescription className="text-slate-400 text-base">
+                    See how much value you could recover in seconds. No email required.
+                  </SheetDescription>
+                </SheetHeader>
+
+                <form onSubmit={handleCalculate} className="space-y-4 mt-8">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label className="text-slate-300">Year</Label>
+                      <Input 
+                        type="number" 
+                        placeholder="2022" 
+                        className="bg-slate-900/50 border-slate-700 text-white placeholder:text-slate-600 focus:border-emerald-500/50 focus:ring-emerald-500/20"
+                        value={formData.year}
+                        onChange={(e) => setFormData({...formData, year: e.target.value})}
+                        required
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label className="text-slate-300">State</Label>
+                      <Select value={formData.state} onValueChange={(v) => setFormData({...formData, state: v})}>
+                        <SelectTrigger className="bg-slate-900/50 border-slate-700 text-white focus:border-emerald-500/50 focus:ring-emerald-500/20">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent className="bg-slate-900 border-slate-800 text-white">
+                          <SelectItem value="GA">Georgia</SelectItem>
+                          <SelectItem value="FL">Florida</SelectItem>
+                          <SelectItem value="NC">North Carolina</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <Label className="text-slate-300">Make</Label>
+                    <Input 
+                      placeholder="e.g. Honda" 
+                      className="bg-slate-900/50 border-slate-700 text-white placeholder:text-slate-600 focus:border-emerald-500/50 focus:ring-emerald-500/20"
+                      value={formData.make}
+                      onChange={(e) => setFormData({...formData, make: e.target.value})}
+                      required
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label className="text-slate-300">Model</Label>
+                    <Input 
+                      placeholder="e.g. Accord Sport" 
+                      className="bg-slate-900/50 border-slate-700 text-white placeholder:text-slate-600 focus:border-emerald-500/50 focus:ring-emerald-500/20"
+                      value={formData.model}
+                      onChange={(e) => setFormData({...formData, model: e.target.value})}
+                      required
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label className="text-slate-300">Current Mileage</Label>
+                    <Input 
+                      type="number"
+                      placeholder="e.g. 35000" 
+                      className="bg-slate-900/50 border-slate-700 text-white placeholder:text-slate-600 focus:border-emerald-500/50 focus:ring-emerald-500/20"
+                      value={formData.mileage}
+                      onChange={(e) => setFormData({...formData, mileage: e.target.value})}
+                      required
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label className="text-slate-300">Prior Accidents</Label>
+                    <Select value={formData.accidents} onValueChange={(v) => setFormData({...formData, accidents: v})}>
+                      <SelectTrigger className="bg-slate-900/50 border-slate-700 text-white focus:border-emerald-500/50 focus:ring-emerald-500/20">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent className="bg-slate-900 border-slate-800 text-white">
+                        <SelectItem value="0">None (Clean History)</SelectItem>
+                        <SelectItem value="1">1 Prior Accident</SelectItem>
+                        <SelectItem value="2">2+ Prior Accidents</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <Button 
+                    type="submit" 
+                    className="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-medium h-12 mt-6 shadow-lg shadow-emerald-900/20"
+                    disabled={loading}
+                  >
+                    {loading ? (
+                      <span className="flex items-center gap-2">
+                        <Sparkles className="h-4 w-4 animate-spin" /> Analyzing Market Data...
+                      </span>
+                    ) : (
+                      "Calculate Estimated Value"
+                    )}
+                  </Button>
+                </form>
+              </div>
+            ) : (
+              <div className="flex flex-col h-full animate-in slide-in-from-right-8 fade-in duration-700">
+                <div className="flex-1 flex flex-col justify-center text-center space-y-8">
+                  <div>
+                    <h3 className="text-slate-400 mb-2 font-medium">Estimated Diminished Value</h3>
+                    <div className="text-5xl sm:text-6xl font-serif font-bold text-transparent bg-clip-text bg-gradient-to-b from-white to-emerald-200 tracking-tight">
+                      ${estimate?.min.toLocaleString()} – ${estimate?.max.toLocaleString()}
+                    </div>
+                    <div className="mt-4 inline-flex items-center gap-2 text-xs text-slate-500 bg-slate-900/50 px-3 py-1 rounded-full border border-slate-800">
+                      <AlertCircle className="h-3 w-3" />
+                      Informational estimate only. Not a certified appraisal.
+                    </div>
+                  </div>
+
+                  <Card className="bg-slate-900/40 border-slate-700/50 backdrop-blur-sm">
+                    <CardContent className="p-6 text-left space-y-4">
+                      <div className="flex items-start gap-4">
+                         <div className="h-10 w-10 rounded-full bg-emerald-500/20 flex items-center justify-center shrink-0 text-emerald-400">
+                           <Sparkles className="h-5 w-5" />
+                         </div>
+                         <div>
+                           <h4 className="font-semibold text-white">You are Pre-Qualified</h4>
+                           <p className="text-sm text-slate-400 mt-1">
+                             Based on your {formData.year} {formData.make}, you likely have a recoverable claim. Insurers rarely pay this voluntarily.
+                           </p>
+                         </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+
+                  <div className="space-y-4 pt-4">
+                    <Link href="/create-case">
+                      <Button className="w-full bg-white text-slate-950 hover:bg-slate-200 h-14 text-lg font-bold shadow-xl shadow-white/5">
+                        Get Certified Appraisal ($299)
+                        <ArrowRight className="ml-2 h-5 w-5" />
+                      </Button>
+                    </Link>
+                    <Button variant="ghost" className="text-slate-500 hover:text-white" onClick={reset}>
+                      Start Over
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      </SheetContent>
+    </Sheet>
+  );
+}
