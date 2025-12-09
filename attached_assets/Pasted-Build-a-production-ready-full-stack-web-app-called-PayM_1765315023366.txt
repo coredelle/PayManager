@@ -1,0 +1,167 @@
+Build a production-ready full-stack web app called “PayMyValue” that helps consumers generate professional diminished value (DV) and total loss appraisals and claim letters after a car accident. The MVP should be clean, simple, and optimized for self-serve use with minimal human involvement.
+
+High-level goals:
+- Target user: everyday drivers in Georgia, Florida, and North Carolina filing claims with at-fault insurers.
+- Main outcomes:
+  1) Compute a diminished value or total loss valuation using user-provided data (BlackBook values, comps, repair cost).
+  2) Generate a professional appraisal-style PDF report.
+  3) Generate a demand/rebuttal letter that the user can send to the insurance company.
+  4) Provide a simple chat-like guided flow that helps them understand what to do next.
+
+TECH STACK
+- Frontend: React + TypeScript, using a simple component library and TailwindCSS for styling.
+- Backend: Node.js with Express (or Next.js API routes), TypeScript.
+- Database: SQLite or Postgres via Prisma or a similar ORM.
+- Auth: Basic email/password authentication so users can save and return to their case.
+- File generation: Use a server-side PDF library to export appraisal reports and letters.
+- Environment variables: Prepare for OPENAI_API_KEY and STRIPE_SECRET_KEY, but the MVP should run without them.
+
+CORE ENTITIES AND DATABASE MODELS
+
+User
+- id, name, email, passwordHash, createdAt, updatedAt
+
+Case
+- id, userId, caseType (“diminished_value” or “total_loss”), state (“GA”, “FL”, “NC”)
+- status (“draft”, “ready_for_download”, “completed”)
+- atFaultInsurerName, claimNumber, adjusterName, adjusterEmail, dateOfLoss
+- createdAt, updatedAt
+
+Vehicle
+- year, make, model, trim, vin, mileageAtLoss, plate, state, isEV, additionalOptions
+
+RepairInfo
+- bodyShopName, bodyShopPhone, bodyShopAddress
+- totalRepairCost
+- keyImpactAreas (text list)
+- repairSummary
+- repairStartDate, repairEndDate
+
+ValuationInputs
+- blackBookCleanRetail, blackBookRoughRetail
+- thirdPartyPreAccidentValue
+- thirdPartyPostAccidentValue
+- userNotes
+- marketNotes
+- compsJson (array: dealer, phone, year/make/model/trim, miles, price, vin, url)
+
+ValuationResults
+- preAccidentValue, postAccidentValue, diminishedValueAmount
+- calculationDetails
+- calculatedAt
+
+GeneratedDocument
+- type (“appraisal_report” or “demand_letter”), urlOrPath, createdAt
+
+PUBLIC / MARKETING PAGES
+
+Landing page
+- Clearly explains diminished value and total loss.
+- Communicates: “PayMyValue calculates your car’s loss in value and auto-generates appraisal and claim letters recognized by insurers.”
+- CTA: “Start Your Appraisal”.
+- Transparent placeholder pricing: “$300 per appraisal”.
+
+Auth pages
+- Simple signup, login, forgot password.
+
+AUTHENTICATED EXPERIENCE
+
+Dashboard
+- List all user cases with year/make/model, state, case type, DV/ACV amount, and shortcuts (“View”, “Continue”, “Download Report”, “Download Letter”).
+
+Create Case wizard
+
+Step 1 — Claim details
+- State, case type, insurer, claim number, adjuster info, date of loss.
+
+Step 2 — Vehicle details
+- Year, make, model, trim, VIN, mileage, plate/state, EV toggle.
+
+Step 3 — Repair details (DV cases)
+- Body shop info, total repair cost, damage areas, repair dates, upload placeholders.
+
+Step 4 — Valuation inputs
+User manually enters:
+- BlackBook Clean Retail
+- BlackBook Rough Retail
+- Pre-accident value (optional)
+- Post-accident value
+- Up to 3 comps (dealer, vehicle, price, miles, link)
+- Notes fields
+
+Step 5 — Review & Calculation
+Backend calculates DV or ACV.
+
+CALCULATION LOGIC (separate module)
+
+Pre-accident value:
+- Average BlackBook Clean Retail with comps.
+
+Post-accident value (DV):
+- Use BlackBook Rough Retail or user-entered post-accident value.
+- Optional “stigma factor” based on repair cost as % of pre-loss value.
+
+Diminished value:
+- DV = preAccidentValue – postAccidentValue.
+
+Total loss:
+- ACV from BlackBook + comps.
+
+Show preview table:
+- Pre-accident value
+- Post-accident value
+- DV amount or ACV
+- Damage summary, repair cost, date of loss, state
+
+After confirmation, store ValuationResults.
+
+DOCUMENT GENERATION
+
+1) Appraisal Report PDF
+Include:
+- Cover panel: “PayMyValue — Diminished Value Appraisal Report” or “Total Loss Valuation Report”
+- User + vehicle + claim metadata
+- Purpose of report
+- Vehicle & repair summary
+- Market research tables (BlackBook + comps)
+- Comparables section with dealer and listing details
+- Results summary with explicit DV/ACV amount
+- State context section:
+  - GA: DV = difference between pre-loss and post-loss FMV; DV is recoverable after repairs.
+  - FL & NC: generic “DV may be recoverable; each state applies its own standards.”
+
+2) Demand / Rebuttal Letter PDF
+Includes:
+- Header with adjuster, insurer, claim number, VIN
+- Summary of loss, repair cost, and valuation result
+- State-specific paragraph (GA uses DV definition based on FMV; FL/NC generic fairness-based language)
+- Request for payment of DV/ACV
+- Polite but firm closing inviting prompt resolution
+
+GUIDED CHAT EXPERIENCE
+- Right-side panel in case view
+- Predefined prompts: “How do I send this?”, “What if the insurer lowballs?”, “What if they ignore me?”
+- Answers should dynamically insert case values (DV amount, ACV, repair cost).
+- Architect for later AI integration.
+
+ADMIN VIEW (simple)
+- List all cases
+- Open any case to view data
+- Edit valuation parameters and re-run calculation
+
+ARCHITECTURE REQUIREMENTS
+- Clear file structure with comments for valuation logic and document templates
+- Modular services for:
+  - ValuationService
+  - PDFService
+  - LetterTemplateService
+- README with setup, environment variables, and instructions for modifying formulas
+
+DELIVERABLE
+A working MVP of PayMyValue in Replit that:
+- Allows signup/login
+- Lets users create a DV or total loss case
+- Calculates DV/ACV values
+- Generates two PDFs: appraisal report + claim letter
+- Provides a guided help/chat panel
+- Organizes code cleanly for future enhancements
