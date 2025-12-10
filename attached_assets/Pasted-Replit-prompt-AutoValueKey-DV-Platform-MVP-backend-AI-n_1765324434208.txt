@@ -1,0 +1,529 @@
+Replit prompt – AutoValueKey DV Platform (MVP backend + AI negotiation)
+
+You are building the backend for my diminished value (DV) claims platform, AutoValueKey.
+
+High level
+
+AutoValueKey helps accident victims and personal injury firms recover diminished value after a not-at-fault crash. The platform has two main personas (see narrative overview):
+
+Consumer accident victim (D2C)
+
+Law firm / PI attorney, especially paralegals managing many claims (B2B)
+
+Core capabilities:
+
+Pre-qualification and DV estimation using MarketCheck data
+
+Case management with per-user case folders
+
+File upload for repair estimates and insurance communications
+
+OCR module to extract text from uploaded documents/screenshots
+
+GPT-based Negotiation Assistant that drafts responses to adjusters, grounded in state-specific DV law and case law summaries (GA, FL, NC to start)
+
+PDF generation for DV appraisal report and demand letter (we can stub this for now)
+
+Tech stack
+
+Node.js + Express backend in /server
+
+SQLite with an ORM (Prisma or similar) for persistence
+
+multer (or similar) for file uploads
+
+tesseract.js or another Node OCR library for basic OCR (can be a separate service module)
+
+MarketCheck APIs for all vehicle/market data
+
+OpenAI API for GPT-powered negotiation assistant
+
+Local file storage folder (e.g. /uploads) for now
+
+Environment variables (.env)
+
+PORT=3000
+
+DATABASE_URL=file:./dev.db (or whatever Prisma uses)
+
+MARKETCHECK_API_KEY=your_marketcheck_key_here
+
+OPENAI_API_KEY=your_openai_key_here
+
+Project structure
+
+Create something like:
+
+/server
+  index.js
+  db/
+    schema.prisma   (or equivalent schema file)
+  routes/
+    auth.js
+    dvCases.js
+    documents.js
+    negotiation.js
+  services/
+    marketcheckDecoder.js
+    marketcheckMarket.js
+    marketcheckHistory.js
+    dvCalculator.js
+    ocrService.js
+    legalContext.js
+    negotiationEngine.js
+    pdfService.js            // stub ok
+
+
+Database models
+
+Use SQLite with an ORM. Define at least these entities:
+
+User
+
+id (string or int)
+
+email (unique)
+
+password_hash
+
+role: "consumer" | "attorney" | "paralegal" | "admin"
+
+firm_name (nullable, used if role is attorney/paralegal)
+
+created_at, updated_at
+
+Case
+
+id
+
+owner_user_id (User who created/owns the case)
+
+firm_id (nullable; link to a User with role attorney/paralegal if this is a firm case)
+
+client_name (string; for D2C this can be same as owner name, for firms it is their client)
+
+accident_state: "GA" | "FL" | "NC"
+
+vin
+
+mileage
+
+zip
+
+loss_date
+
+repair_cost
+
+dv_pre_loss_value (number, nullable)
+
+dv_post_loss_value (number, nullable)
+
+dv_amount (number, nullable)
+
+status: "draft" | "in_review" | "negotiating" | "closed"
+
+created_at, updated_at
+
+Document
+
+id
+
+case_id
+
+type: "repair_estimate" | "insurer_letter" | "demand_letter" | "other"
+
+original_filename
+
+stored_path
+
+mime_type
+
+extracted_text (text, nullable; filled by OCR)
+
+uploaded_by_user_id
+
+uploaded_at
+
+NegotiationMessage
+
+id
+
+case_id
+
+sender: "user" | "assistant" | "adjuster"
+
+source: "manual_input" | "ocr_upload" | "assistant_reply"
+
+text
+
+created_at
+
+Use migrations so tables are created automatically.
+
+Authentication routes
+
+routes/auth.js:
+
+POST /api/auth/register
+
+Body: { email, password, role, firm_name? }
+
+Hash password with bcrypt.
+
+Create user.
+
+POST /api/auth/login
+
+Body: { email, password }
+
+Verify password; return a signed JWT.
+
+Middleware requireAuth that validates JWT and attaches req.user with id, role, etc.
+
+Case management routes
+
+routes/dvCases.js (all protected by requireAuth):
+
+POST /api/cases
+
+Create a case with basic info:
+
+{ client_name, accident_state, vin, mileage, zip, loss_date, repair_cost }
+
+For consumer:
+
+owner_user_id = req.user.id
+
+firm_id = null
+
+For firm users (attorney/paralegal):
+
+owner_user_id = req.user.id
+
+firm_id = req.user.id or a separate firm table; simplest is to use the same user id as firm owner.
+
+Return the created case.
+
+GET /api/cases
+
+List cases visible to current user:
+
+Consumers: only their own cases.
+
+Firm roles: all cases where firm_id = req.user.id.
+
+GET /api/cases/:caseId
+
+Return full case details, associated documents, and last few negotiation messages.
+
+POST /api/cases/:caseId/estimate
+
+Calls the DV estimation flow (see below) to populate dv_pre_loss_value, dv_post_loss_value, dv_amount.
+
+Returns the updated case plus DV values.
+
+DV estimation engine (MarketCheck)
+
+Use only MarketCheck as data provider. Implement these service modules:
+
+services/marketcheckDecoder.js
+
+async function decodeVin(vin)
+
+Calls MarketCheck Basic VIN Decoder API.
+
+Normalizes return to:
+
+{
+  vin,
+  year,
+  make,
+  model,
+  trim,
+  body_style,
+  driveline,
+  fuel_type
+}
+
+
+services/marketcheckMarket.js
+
+async function getMarketData({ vin, mileage, zip })
+
+Uses Cars Market APIs (and optionally Listing/VDP) to return:
+
+{
+  value: { low, mid, high },
+  listings: [
+    {
+      price,
+      mileage,
+      dealer_name,
+      city,
+      state,
+      url
+    },
+    ...
+  ]
+}
+
+
+services/marketcheckHistory.js
+
+async function getHistory(vin)
+
+Calls MarketCheck VIN History API if available.
+
+Returns:
+
+{
+  vin,
+  accident_count,
+  title_brands,       // []
+  odometer_issues,    // boolean
+  theft_record,       // boolean
+  last_odometer       // number | null
+}
+
+
+If not available, return null instead of throwing.
+
+services/dvCalculator.js
+
+function calculateDV({ vehicle, marketData, history, repair_cost, mileage, accident_state })
+
+Logic:
+
+Pre-loss value = marketData.value.mid || high || low || 0.
+
+Base discount percent:
+
+Car age 0–3 years: 0.15
+
+4–7 years: 0.10
+
+8+ years: 0.07
+
+Adjust:
+
+If repair_cost / preLoss > 0.3 add 0.03.
+
+If repair_cost / preLoss > 0.5 add 0.05 instead.
+
+If history && history.accident_count > 1 add 0.03.
+
+If history && history.title_brands.length > 0 add 0.02.
+
+Clamp discount between 0.05 and 0.30.
+
+Compute:
+
+dvAmount = Math.round(preLoss * discountPercent)
+
+postLoss = Math.max(0, Math.round(preLoss - dvAmount))
+
+Return { pre_loss_value, post_loss_value, diminished_value }.
+
+POST /api/cases/:caseId/estimate should:
+
+Load case from DB.
+
+Call decoder, market, history services in parallel.
+
+Call calculateDV.
+
+Save values back to case.
+
+Return:
+
+{
+  "case": { ... },
+  "vehicle": { ... },
+  "market": { ... },
+  "history": { ... },
+  "values": { "pre_loss_value": ..., "post_loss_value": ..., "diminished_value": ... }
+}
+
+
+Document upload and OCR
+
+routes/documents.js:
+
+Use multer to handle file uploads into /uploads.
+
+Endpoints:
+
+POST /api/cases/:caseId/documents
+
+Multipart form with file and type ("repair_estimate" or "insurer_letter" or "other").
+
+Save a Document record with stored_path, mime_type.
+
+After saving, call OCR service asynchronously to fill extracted_text.
+
+services/ocrService.js:
+
+async function extractTextFromFile(path)
+
+Use tesseract.js or another OCR library.
+
+Return extracted plain text.
+
+On failure, log error and return empty string.
+
+The DV flow should rely on repair_cost from user input for now. OCR from repair estimate is mainly for future automation but should still save extracted text.
+
+Legal context and compliance grounding
+
+Create services/legalContext.js that exports:
+
+function getStateContext(stateCode) where stateCode is "GA", "FL", or "NC".
+
+Return an object like:
+
+{
+  state: "GA",
+  dv_statutes_summary: "Plain language summary of GA diminished value law and how 17(c) is misused by insurers. TODO: fill with real content.",
+  key_cases: [
+    {
+      name: "Mabry v. State Farm (Georgia)",
+      holding_summary: "Short layman explanation of why DV is owed even after proper repairs."
+    }
+  ],
+  negotiation_angles: [
+    "Insurer cannot rely on a rigid 17(c) formula where it conflicts with actual market evidence.",
+    "Georgia recognizes inherent diminished value separate from repair quality."
+  ]
+}
+
+
+For now, stub these with placeholder text and clear TODO comments; the structure is what matters.
+
+GPT negotiation assistant
+
+Create services/negotiationEngine.js that uses the OpenAI Node SDK.
+
+async function generateAdjusterResponse({ caseData, latestAdjusterText, userNotes, stateContext })
+
+Behavior:
+
+Builds a system prompt that:
+
+Positions the model as a negotiation assistant helping a not-at-fault claimant or their paralegal respond to an insurance adjuster about diminished value.
+
+Uses the DV estimate, accident facts, MarketCheck market value/comps, and stateContext (statutes, case law summaries) to ground arguments.
+
+Enforces strict style rules:
+
+No em dashes. Use normal hyphens instead.
+
+No markdown formatting. Plain text only.
+
+No emojis.
+
+Tone: firm, respectful, plain-language, ready to copy-paste into an email.
+
+Includes in the conversation:
+
+Brief case summary (state, vehicle, dv_amount, repair cost).
+
+Any compliance notes or negotiation angles from stateContext.
+
+The extracted or pasted text from the adjuster’s last message.
+
+Optional user notes like “I want to push back on their 17c formula.”
+
+Calls OpenAI (for example gpt-4.1-mini or similar) and returns the text string only.
+
+Negotiation routes
+
+routes/negotiation.js (protected):
+
+POST /api/cases/:caseId/negotiation/from-text
+
+Body:
+
+{
+  "adjuster_text": "pasted text of email from adjuster",
+  "user_notes": "optional notes from user"
+}
+
+
+Loads case from DB and related DV values.
+
+Gets state context via getStateContext(case.accident_state).
+
+Calls generateAdjusterResponse.
+
+Saves two NegotiationMessage records:
+
+One for the adjuster_text (sender "adjuster", source "manual_input").
+
+One for the assistant reply (sender "assistant", source "assistant_reply").
+
+Returns:
+
+{
+  "assistant_reply": "full email text, plain language, ready to copy and paste"
+}
+
+
+POST /api/cases/:caseId/negotiation/from-document
+
+Body: { document_id, user_notes }
+
+Loads the Document by id, uses its extracted_text as adjuster_text.
+
+Otherwise same as from-text.
+
+This covers the “upload screenshot of insurance email, extract via OCR, get natural response back” flow.
+
+PDF generation (stub)
+
+services/pdfService.js can have a stub:
+
+async function generateDvReport(caseData, vehicle, market, history, values)
+
+async function generateDemandLetter(caseData, values, stateContext)
+
+For now, they can just return dummy file paths or simple text files. Include TODO comments for integrating a real PDF engine later (e.g. Puppeteer).
+
+State compliance engine
+
+Compliance is mostly embodied in legalContext plus the requirement that we reference correct jurisdiction and not give general legal advice. At this stage, create a simple helper:
+
+function getComplianceNotes(stateCode) in legalContext.js
+
+Returns high-level notes like:
+
+Applicable statute of limitation reminder.
+
+Reminder that user should consult an attorney.
+
+These notes can be included in DV report and negotiation prompts as context.
+
+Health check
+
+Add GET /api/health returning { status: "ok" }.
+
+General requirements
+
+All routes should handle errors gracefully and return JSON with { error: "message" }.
+
+Do not integrate any providers besides MarketCheck and OpenAI.
+
+Keep everything modular so we can later swap SQLite for Postgres and local file storage for S3.
+
+Code should be ready for the frontend to:
+
+Register/log in users.
+
+Create and view cases.
+
+Upload files that live in a “case folder.”
+
+Trigger DV estimate.
+
+Call negotiation assistant and display the reply for copy-paste into email.
+
+Use this specification to generate all necessary backend code and scaffolding in Replit.

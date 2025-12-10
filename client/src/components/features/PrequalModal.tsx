@@ -1,14 +1,15 @@
 import { useState } from "react";
+import { useMutation } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
 import { Card, CardContent } from "@/components/ui/card";
-import { Sparkles, ArrowRight, X, AlertCircle } from "lucide-react";
+import { Sparkles, ArrowRight, AlertCircle } from "lucide-react";
 import { Link } from "wouter";
-import { cn } from "@/lib/utils";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { api } from "@/lib/api";
 
 interface PrequalModalProps {
   isOpen: boolean;
@@ -17,8 +18,7 @@ interface PrequalModalProps {
 
 export function PrequalModal({ isOpen, onOpenChange }: PrequalModalProps) {
   const [step, setStep] = useState<"form" | "result">("form");
-  const [loading, setLoading] = useState(false);
-  const [estimate, setEstimate] = useState<{ min: number; max: number } | null>(null);
+  const [estimate, setEstimate] = useState<{ min: number; max: number; qualified: boolean } | null>(null);
 
   const [formData, setFormData] = useState({
     year: "2022",
@@ -26,42 +26,33 @@ export function PrequalModal({ isOpen, onOpenChange }: PrequalModalProps) {
     model: "",
     mileage: "",
     state: "GA",
-    fault: ""
+    fault: "",
   });
 
   const years = Array.from({ length: 2026 - 1900 }, (_, i) => (2025 - i).toString());
 
+  const estimateMutation = useMutation({
+    mutationFn: api.prequal.estimate,
+    onSuccess: (data) => {
+      setEstimate({
+        min: data.estimateMin,
+        max: data.estimateMax,
+        qualified: data.qualified,
+      });
+      setStep("result");
+    },
+  });
+
   const handleCalculate = (e: React.FormEvent) => {
     e.preventDefault();
-    setLoading(true);
-
-    // MOCK CALCULATION LOGIC
-    setTimeout(() => {
-      const year = parseInt(formData.year) || 2020;
-      const mileage = parseInt(formData.mileage) || 50000;
-      
-      // Base value assumption (very rough mock)
-      let baseValue = 30000; 
-      baseValue -= (2025 - year) * 2000; // Depreciate by year
-      baseValue -= (mileage / 10000) * 500; // Depreciate by mileage
-
-      // Diminished Value Estimate (approx 10-15% of value)
-      let minDV = baseValue * 0.10;
-      let maxDV = baseValue * 0.15;
-
-      // Adjust for fault if they admit fault (mock logic - usually 0 if at fault, but we show range anyway with disclaimer)
-      if (formData.fault === "at_fault") {
-        minDV = 0;
-        maxDV = 0;
-      }
-
-      setEstimate({
-        min: Math.max(0, Math.round(minDV / 100) * 100), // Round to nearest 100
-        max: Math.max(0, Math.round(maxDV / 100) * 100)
-      });
-      setLoading(false);
-      setStep("result");
-    }, 1500);
+    estimateMutation.mutate({
+      year: parseInt(formData.year),
+      make: formData.make,
+      model: formData.model,
+      mileage: parseInt(formData.mileage),
+      state: formData.state,
+      fault: formData.fault,
+    });
   };
 
   const reset = () => {
@@ -74,9 +65,8 @@ export function PrequalModal({ isOpen, onOpenChange }: PrequalModalProps) {
     <Sheet open={isOpen} onOpenChange={onOpenChange}>
       <SheetContent className="w-full sm:max-w-md bg-slate-950 border-slate-800 text-white p-0 overflow-y-auto">
         <div className="relative h-full flex flex-col">
-          {/* Background Gradient */}
           <div className="absolute inset-0 bg-gradient-to-br from-indigo-900/20 via-slate-900/50 to-emerald-900/20 pointer-events-none" />
-          
+
           <div className="relative z-10 p-6 flex-1 flex flex-col">
             <div className="flex justify-between items-center mb-6">
               <div className="flex items-center gap-2 text-emerald-400 font-medium text-sm border border-emerald-500/30 bg-emerald-500/10 px-3 py-1 rounded-full">
@@ -96,56 +86,61 @@ export function PrequalModal({ isOpen, onOpenChange }: PrequalModalProps) {
                 <form onSubmit={handleCalculate} className="space-y-4 mt-8">
                   <div className="space-y-2">
                     <Label className="text-slate-300">Year</Label>
-                    <Select value={formData.year} onValueChange={(v) => setFormData({...formData, year: v})}>
-                      <SelectTrigger className="bg-slate-900/50 border-slate-700 text-white focus:border-emerald-500/50 focus:ring-emerald-500/20">
+                    <Select value={formData.year} onValueChange={(v) => setFormData({ ...formData, year: v })}>
+                      <SelectTrigger className="bg-slate-900/50 border-slate-700 text-white focus:border-emerald-500/50 focus:ring-emerald-500/20" data-testid="prequal-select-year">
                         <SelectValue placeholder="Select Year" />
                       </SelectTrigger>
                       <SelectContent className="bg-slate-900 border-slate-800 text-white max-h-[200px]">
                         {years.map((y) => (
-                          <SelectItem key={y} value={y}>{y}</SelectItem>
+                          <SelectItem key={y} value={y}>
+                            {y}
+                          </SelectItem>
                         ))}
                       </SelectContent>
                     </Select>
                   </div>
-                  
+
                   <div className="space-y-2">
                     <Label className="text-slate-300">Make</Label>
-                    <Input 
-                      placeholder="e.g. Honda" 
+                    <Input
+                      placeholder="e.g. Honda"
                       className="bg-slate-900/50 border-slate-700 text-white placeholder:text-slate-600 focus:border-emerald-500/50 focus:ring-emerald-500/20"
                       value={formData.make}
-                      onChange={(e) => setFormData({...formData, make: e.target.value})}
+                      onChange={(e) => setFormData({ ...formData, make: e.target.value })}
                       required
+                      data-testid="prequal-input-make"
                     />
                   </div>
 
                   <div className="space-y-2">
                     <Label className="text-slate-300">Model</Label>
-                    <Input 
-                      placeholder="e.g. Accord Sport" 
+                    <Input
+                      placeholder="e.g. Accord Sport"
                       className="bg-slate-900/50 border-slate-700 text-white placeholder:text-slate-600 focus:border-emerald-500/50 focus:ring-emerald-500/20"
                       value={formData.model}
-                      onChange={(e) => setFormData({...formData, model: e.target.value})}
+                      onChange={(e) => setFormData({ ...formData, model: e.target.value })}
                       required
+                      data-testid="prequal-input-model"
                     />
                   </div>
 
                   <div className="space-y-2">
                     <Label className="text-slate-300">Current Mileage</Label>
-                    <Input 
+                    <Input
                       type="number"
-                      placeholder="e.g. 35000" 
+                      placeholder="e.g. 35000"
                       className="bg-slate-900/50 border-slate-700 text-white placeholder:text-slate-600 focus:border-emerald-500/50 focus:ring-emerald-500/20"
                       value={formData.mileage}
-                      onChange={(e) => setFormData({...formData, mileage: e.target.value})}
+                      onChange={(e) => setFormData({ ...formData, mileage: e.target.value })}
                       required
+                      data-testid="prequal-input-mileage"
                     />
                   </div>
 
                   <div className="space-y-2">
                     <Label className="text-slate-300">Accident State</Label>
-                    <Select value={formData.state} onValueChange={(v) => setFormData({...formData, state: v})}>
-                      <SelectTrigger className="bg-slate-900/50 border-slate-700 text-white focus:border-emerald-500/50 focus:ring-emerald-500/20">
+                    <Select value={formData.state} onValueChange={(v) => setFormData({ ...formData, state: v })}>
+                      <SelectTrigger className="bg-slate-900/50 border-slate-700 text-white focus:border-emerald-500/50 focus:ring-emerald-500/20" data-testid="prequal-select-state">
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent className="bg-slate-900 border-slate-800 text-white">
@@ -158,31 +153,43 @@ export function PrequalModal({ isOpen, onOpenChange }: PrequalModalProps) {
 
                   <div className="space-y-3 pt-2">
                     <Label className="text-slate-300">Who was at fault?</Label>
-                    <RadioGroup value={formData.fault} onValueChange={(v) => setFormData({...formData, fault: v})} className="space-y-2">
+                    <RadioGroup
+                      value={formData.fault}
+                      onValueChange={(v) => setFormData({ ...formData, fault: v })}
+                      className="space-y-2"
+                    >
                       <div className="flex items-center space-x-2 bg-slate-900/30 p-3 rounded-lg border border-slate-800 cursor-pointer hover:border-slate-700 transition-colors">
                         <RadioGroupItem value="not_at_fault" id="not_fault" className="border-slate-400 text-emerald-500" />
-                        <Label htmlFor="not_fault" className="text-slate-200 cursor-pointer flex-1">I was NOT at fault</Label>
+                        <Label htmlFor="not_fault" className="text-slate-200 cursor-pointer flex-1">
+                          I was NOT at fault
+                        </Label>
                       </div>
                       <div className="flex items-center space-x-2 bg-slate-900/30 p-3 rounded-lg border border-slate-800 cursor-pointer hover:border-slate-700 transition-colors">
                         <RadioGroupItem value="at_fault" id="at_fault" className="border-slate-400 text-emerald-500" />
-                        <Label htmlFor="at_fault" className="text-slate-200 cursor-pointer flex-1">I WAS at fault</Label>
+                        <Label htmlFor="at_fault" className="text-slate-200 cursor-pointer flex-1">
+                          I WAS at fault
+                        </Label>
                       </div>
                       <div className="flex items-center space-x-2 bg-slate-900/30 p-3 rounded-lg border border-slate-800 cursor-pointer hover:border-slate-700 transition-colors">
                         <RadioGroupItem value="unsure" id="unsure" className="border-slate-400 text-emerald-500" />
-                        <Label htmlFor="unsure" className="text-slate-200 cursor-pointer flex-1">I’m not sure yet</Label>
+                        <Label htmlFor="unsure" className="text-slate-200 cursor-pointer flex-1">
+                          I'm not sure yet
+                        </Label>
                       </div>
                     </RadioGroup>
                     <p className="text-xs text-slate-500 leading-relaxed px-1">
-                      Not sure yet? That’s okay. You can still get a pre-approval and an estimated diminished value range.
+                      Not sure yet? That's okay. You can still get a pre-approval and an estimated diminished value
+                      range.
                     </p>
                   </div>
 
-                  <Button 
-                    type="submit" 
+                  <Button
+                    type="submit"
                     className="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-medium h-12 mt-6 shadow-lg shadow-emerald-900/20"
-                    disabled={loading || !formData.fault}
+                    disabled={estimateMutation.isPending || !formData.fault}
+                    data-testid="prequal-button-calculate"
                   >
-                    {loading ? (
+                    {estimateMutation.isPending ? (
                       <span className="flex items-center gap-2">
                         <Sparkles className="h-4 w-4 animate-spin" /> Analyzing Market Data...
                       </span>
@@ -197,8 +204,8 @@ export function PrequalModal({ isOpen, onOpenChange }: PrequalModalProps) {
                 <div className="flex-1 flex flex-col justify-center text-center space-y-8">
                   <div>
                     <h3 className="text-slate-400 mb-2 font-medium">Estimated Diminished Value</h3>
-                    <div className="text-5xl sm:text-6xl font-serif font-bold text-transparent bg-clip-text bg-gradient-to-b from-white to-emerald-200 tracking-tight">
-                      ${estimate?.min.toLocaleString()} – ${estimate?.max.toLocaleString()}
+                    <div className="text-5xl sm:text-6xl font-serif font-bold text-transparent bg-clip-text bg-gradient-to-b from-white to-emerald-200 tracking-tight" data-testid="prequal-estimate">
+                      ${estimate?.min.toLocaleString()} - ${estimate?.max.toLocaleString()}
                     </div>
                     <div className="mt-4 inline-flex items-center gap-2 text-xs text-slate-500 bg-slate-900/50 px-3 py-1 rounded-full border border-slate-800">
                       <AlertCircle className="h-3 w-3" />
@@ -206,30 +213,50 @@ export function PrequalModal({ isOpen, onOpenChange }: PrequalModalProps) {
                     </div>
                   </div>
 
-                  <Card className="bg-slate-900/40 border-slate-700/50 backdrop-blur-sm">
-                    <CardContent className="p-6 text-left space-y-4">
-                      <div className="flex items-start gap-4">
-                         <div className="h-10 w-10 rounded-full bg-emerald-500/20 flex items-center justify-center shrink-0 text-emerald-400">
-                           <Sparkles className="h-5 w-5" />
-                         </div>
-                         <div>
-                           <h4 className="font-semibold text-white">You are Pre-Qualified</h4>
-                           <p className="text-sm text-slate-400 mt-1">
-                             Based on your {formData.year} {formData.make}, you likely have a recoverable claim. Insurers rarely pay this voluntarily.
-                           </p>
-                         </div>
-                      </div>
-                    </CardContent>
-                  </Card>
+                  {estimate?.qualified ? (
+                    <Card className="bg-slate-900/40 border-slate-700/50 backdrop-blur-sm">
+                      <CardContent className="p-6 text-left space-y-4">
+                        <div className="flex items-start gap-4">
+                          <div className="h-10 w-10 rounded-full bg-emerald-500/20 flex items-center justify-center shrink-0 text-emerald-400">
+                            <Sparkles className="h-5 w-5" />
+                          </div>
+                          <div>
+                            <h4 className="font-semibold text-white">You are Pre-Qualified</h4>
+                            <p className="text-sm text-slate-400 mt-1">
+                              Based on your {formData.year} {formData.make}, you likely have a recoverable claim.
+                              Insurers rarely pay this voluntarily.
+                            </p>
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ) : (
+                    <Card className="bg-slate-900/40 border-amber-700/50 backdrop-blur-sm">
+                      <CardContent className="p-6 text-left space-y-4">
+                        <div className="flex items-start gap-4">
+                          <div className="h-10 w-10 rounded-full bg-amber-500/20 flex items-center justify-center shrink-0 text-amber-400">
+                            <AlertCircle className="h-5 w-5" />
+                          </div>
+                          <div>
+                            <h4 className="font-semibold text-white">At-Fault Limitation</h4>
+                            <p className="text-sm text-slate-400 mt-1">
+                              If you were at fault, you typically cannot recover diminished value from the other
+                              driver's insurer. However, you may still have options under your own policy.
+                            </p>
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  )}
 
                   <div className="space-y-4 pt-4">
-                    <Link href="/create-case">
-                      <Button className="w-full bg-white text-slate-950 hover:bg-slate-200 h-14 text-lg font-bold shadow-xl shadow-white/5">
+                    <Link href="/auth">
+                      <Button className="w-full bg-white text-slate-950 hover:bg-slate-200 h-14 text-lg font-bold shadow-xl shadow-white/5" data-testid="prequal-button-cta">
                         Get Certified Appraisal ($299)
                         <ArrowRight className="ml-2 h-5 w-5" />
                       </Button>
                     </Link>
-                    <Button variant="ghost" className="text-slate-500 hover:text-white" onClick={reset}>
+                    <Button variant="ghost" className="text-slate-500 hover:text-white" onClick={reset} data-testid="prequal-button-reset">
                       Start Over
                     </Button>
                   </div>

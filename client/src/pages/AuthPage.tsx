@@ -1,25 +1,46 @@
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { useState } from "react";
-import { Link, useLocation } from "wouter";
+import { useAuth } from "@/hooks/useAuth";
+import { useToast } from "@/hooks/use-toast";
 
 export default function AuthPage() {
   const [isLogin, setIsLogin] = useState(true);
-  const [_, setLocation] = useLocation();
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [name, setName] = useState("");
+  const [loading, setLoading] = useState(false);
+  const { login, register } = useAuth();
+  const { toast } = useToast();
 
-  const handleAuth = (e: React.FormEvent) => {
+  const handleAuth = async (e: React.FormEvent) => {
     e.preventDefault();
-    // Mock auth - just redirect to dashboard
-    setLocation("/dashboard");
+    setLoading(true);
+    
+    try {
+      if (isLogin) {
+        await login(email, password);
+      } else {
+        await register(email, password, name || undefined);
+      }
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message || "Authentication failed",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
     <div className="min-h-[80vh] flex items-center justify-center py-12 px-4">
       <Card className="w-full max-w-md shadow-xl border-slate-200">
         <CardHeader className="space-y-1 text-center">
-          <CardTitle className="text-2xl font-serif">
+          <CardTitle className="text-2xl font-serif" data-testid="auth-title">
             {isLogin ? "Welcome back" : "Create an account"}
           </CardTitle>
           <CardDescription>
@@ -30,16 +51,49 @@ export default function AuthPage() {
         </CardHeader>
         <CardContent>
           <form onSubmit={handleAuth} className="space-y-4">
+            {!isLogin && (
+              <div className="space-y-2">
+                <Label htmlFor="name">Name (optional)</Label>
+                <Input 
+                  id="name" 
+                  type="text" 
+                  placeholder="Your name"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  data-testid="input-name"
+                />
+              </div>
+            )}
             <div className="space-y-2">
               <Label htmlFor="email">Email</Label>
-              <Input id="email" type="email" placeholder="m@example.com" required />
+              <Input 
+                id="email" 
+                type="email" 
+                placeholder="m@example.com" 
+                required 
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                data-testid="input-email"
+              />
             </div>
             <div className="space-y-2">
               <Label htmlFor="password">Password</Label>
-              <Input id="password" type="password" required />
+              <Input 
+                id="password" 
+                type="password" 
+                required 
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                data-testid="input-password"
+              />
             </div>
-            <Button type="submit" className="w-full bg-primary hover:bg-primary/90 text-white">
-              {isLogin ? "Sign In" : "Create Account"}
+            <Button 
+              type="submit" 
+              className="w-full bg-primary hover:bg-primary/90 text-white"
+              disabled={loading}
+              data-testid="button-submit"
+            >
+              {loading ? "Please wait..." : (isLogin ? "Sign In" : "Create Account")}
             </Button>
           </form>
           <div className="relative my-4">
@@ -55,6 +109,7 @@ export default function AuthPage() {
              <button 
                onClick={() => setIsLogin(!isLogin)} 
                className="font-medium text-primary hover:underline underline-offset-4"
+               data-testid="button-toggle-auth"
              >
                {isLogin ? "Sign up" : "Log in"}
              </button>

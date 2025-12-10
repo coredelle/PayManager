@@ -1,5 +1,6 @@
-import { useState } from "react";
-import { Link, useLocation } from "wouter";
+import { useState, useEffect } from "react";
+import { useLocation, useSearch } from "wouter";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -8,6 +9,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Check, ChevronRight, ChevronLeft, Car, FileText, Wrench, DollarSign } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { api } from "@/lib/api";
+import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/hooks/useAuth";
 
 const STEPS = [
   { id: 1, title: "Claim Info", icon: FileText },
@@ -19,46 +23,195 @@ const STEPS = [
 
 export default function CreateCase() {
   const [step, setStep] = useState(1);
-  const [_, setLocation] = useLocation();
-  const [formData, setFormData] = useState<any>({
-    caseType: "diminished_value",
-    state: "GA"
+  const [, setLocation] = useLocation();
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+  const { isAuthenticated, isLoading: authLoading } = useAuth();
+  
+  const [formData, setFormData] = useState({
+    caseType: "diminished_value" as "diminished_value" | "total_loss",
+    state: "GA" as "GA" | "FL" | "NC",
+    atFaultInsurerName: "",
+    claimNumber: "",
+    dateOfLoss: "",
+    year: "",
+    make: "",
+    model: "",
+    trim: "",
+    vin: "",
+    mileageAtLoss: "",
+    totalRepairCost: "",
+    bodyShopName: "",
+    keyImpactAreas: "",
+    preAccidentValue: "",
+    postAccidentValue: "",
   });
+  
+  const [caseId, setCaseId] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!authLoading && !isAuthenticated) {
+      setLocation("/auth");
+    }
+  }, [authLoading, isAuthenticated, setLocation]);
 
   const updateData = (key: string, value: any) => {
-    setFormData((prev: any) => ({ ...prev, [key]: value }));
+    setFormData((prev) => ({ ...prev, [key]: value }));
   };
 
-  const nextStep = () => setStep(s => Math.min(s + 1, 5));
-  const prevStep = () => setStep(s => Math.max(s - 1, 1));
-  
-  const finish = () => {
-    // In a real app, this would save to backend
-    // For mockup, we redirect to a mock result page
-    setLocation("/result/new");
+  const createCaseMutation = useMutation({
+    mutationFn: api.cases.create,
+    onSuccess: (data) => {
+      setCaseId(data.id);
+      queryClient.invalidateQueries({ queryKey: ["cases"] });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to save case",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const updateCaseMutation = useMutation({
+    mutationFn: ({ id, data }: { id: string; data: any }) => api.cases.update(id, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["cases"] });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to update case",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const calculateMutation = useMutation({
+    mutationFn: ({ id, data }: { id: string; data: any }) => api.cases.calculate(id, data),
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ["cases"] });
+      setLocation(`/result/${data.case.id}`);
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to calculate value",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const nextStep = async () => {
+    if (step === 1 && !caseId) {
+      const caseData = {
+        caseType: formData.caseType,
+        state: formData.state,
+        atFaultInsurerName: formData.atFaultInsurerName || null,
+        claimNumber: formData.claimNumber || null,
+        dateOfLoss: formData.dateOfLoss || null,
+        year: parseInt(formData.year) || new Date().getFullYear(),
+        make: formData.make || "Unknown",
+        model: formData.model || "Unknown",
+      };
+      createCaseMutation.mutate(caseData, {
+        onSuccess: () => setStep(2),
+      });
+      return;
+    }
+    
+    if (caseId && step === 2) {
+      updateCaseMutation.mutate({
+        id: caseId,
+        data: {
+          year: parseInt(formData.year) || undefined,
+          make: formData.make || undefined,
+          model: formData.model || undefined,
+          trim: formData.trim || null,
+          vin: formData.vin || null,
+          mileageAtLoss: formData.mileageAtLoss ? parseInt(formData.mileageAtLoss) : null,
+        },
+      });
+    }
+    
+    if (caseId && step === 3) {
+      updateCaseMutation.mutate({
+        id: caseId,
+        data: {
+          totalRepairCost: formData.totalRepairCost || null,
+          bodyShopName: formData.bodyShopName || null,
+          keyImpactAreas: formData.keyImpactAreas || null,
+        },
+      });
+    }
+    
+    setStep((s) => Math.min(s + 1, 5));
   };
+
+  const prevStep = () => setStep((s) => Math.max(s - 1, 1));
+
+  const finish = async () => {
+    if (!caseId) {
+      toast({
+        title: "Error",
+        description: "Please complete all previous steps first",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (!formData.preAccidentValue) {
+      toast({
+        title: "Error",
+        description: "Please enter a pre-accident value",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    calculateMutation.mutate({
+      id: caseId,
+      data: {
+        preAccidentValue: parseFloat(formData.preAccidentValue),
+        repairCost: formData.totalRepairCost ? parseFloat(formData.totalRepairCost) : undefined,
+        mileage: formData.mileageAtLoss ? parseInt(formData.mileageAtLoss) : undefined,
+      },
+    });
+  };
+
+  const isLoading = createCaseMutation.isPending || updateCaseMutation.isPending || calculateMutation.isPending;
 
   return (
     <div className="container mx-auto px-4 py-8 max-w-4xl">
-      {/* Progress Stepper */}
       <div className="mb-8">
         <div className="flex items-center justify-between relative">
           <div className="absolute left-0 top-1/2 -translate-y-1/2 w-full h-1 bg-slate-100 -z-10" />
-          <div className="absolute left-0 top-1/2 -translate-y-1/2 h-1 bg-primary -z-10 transition-all duration-300" 
-               style={{ width: `${((step - 1) / (STEPS.length - 1)) * 100}%` }} />
-          
+          <div
+            className="absolute left-0 top-1/2 -translate-y-1/2 h-1 bg-primary -z-10 transition-all duration-300"
+            style={{ width: `${((step - 1) / (STEPS.length - 1)) * 100}%` }}
+          />
+
           {STEPS.map((s) => (
             <div key={s.id} className="flex flex-col items-center bg-background px-2">
-              <div className={cn(
-                "h-10 w-10 rounded-full flex items-center justify-center border-2 transition-colors duration-200",
-                step >= s.id ? "border-primary bg-primary text-white" : "border-slate-200 text-slate-400 bg-white"
-              )}>
+              <div
+                className={cn(
+                  "h-10 w-10 rounded-full flex items-center justify-center border-2 transition-colors duration-200",
+                  step >= s.id
+                    ? "border-primary bg-primary text-white"
+                    : "border-slate-200 text-slate-400 bg-white"
+                )}
+              >
                 <s.icon className="h-5 w-5" />
               </div>
-              <span className={cn(
-                "text-xs mt-2 font-medium",
-                step >= s.id ? "text-foreground" : "text-muted-foreground"
-              )}>{s.title}</span>
+              <span
+                className={cn(
+                  "text-xs mt-2 font-medium",
+                  step >= s.id ? "text-foreground" : "text-muted-foreground"
+                )}
+              >
+                {s.title}
+              </span>
             </div>
           ))}
         </div>
@@ -81,14 +234,19 @@ export default function CreateCase() {
             {step === 5 && "Review your information before generating the report."}
           </CardDescription>
         </CardHeader>
-        
+
         <CardContent className="flex-1 space-y-6">
           {step === 1 && (
             <div className="grid gap-4 md:grid-cols-2">
               <div className="space-y-2">
                 <Label>State of Loss</Label>
-                <Select value={formData.state} onValueChange={(v) => updateData("state", v)}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
+                <Select
+                  value={formData.state}
+                  onValueChange={(v) => updateData("state", v)}
+                >
+                  <SelectTrigger data-testid="select-state">
+                    <SelectValue />
+                  </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="GA">Georgia</SelectItem>
                     <SelectItem value="FL">Florida</SelectItem>
@@ -98,8 +256,13 @@ export default function CreateCase() {
               </div>
               <div className="space-y-2">
                 <Label>Case Type</Label>
-                <Select value={formData.caseType} onValueChange={(v) => updateData("caseType", v)}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
+                <Select
+                  value={formData.caseType}
+                  onValueChange={(v) => updateData("caseType", v)}
+                >
+                  <SelectTrigger data-testid="select-case-type">
+                    <SelectValue />
+                  </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="diminished_value">Diminished Value</SelectItem>
                     <SelectItem value="total_loss">Total Loss</SelectItem>
@@ -108,46 +271,93 @@ export default function CreateCase() {
               </div>
               <div className="space-y-2">
                 <Label>Insurance Company (At Fault)</Label>
-                <Input placeholder="e.g. State Farm" value={formData.insurer} onChange={e => updateData("insurer", e.target.value)} />
+                <Input
+                  placeholder="e.g. State Farm"
+                  value={formData.atFaultInsurerName}
+                  onChange={(e) => updateData("atFaultInsurerName", e.target.value)}
+                  data-testid="input-insurer"
+                />
               </div>
               <div className="space-y-2">
                 <Label>Claim Number</Label>
-                <Input placeholder="e.g. 55-9281-X2" value={formData.claimNumber} onChange={e => updateData("claimNumber", e.target.value)} />
+                <Input
+                  placeholder="e.g. 55-9281-X2"
+                  value={formData.claimNumber}
+                  onChange={(e) => updateData("claimNumber", e.target.value)}
+                  data-testid="input-claim-number"
+                />
               </div>
               <div className="space-y-2">
                 <Label>Date of Loss</Label>
-                <Input type="date" value={formData.dateOfLoss} onChange={e => updateData("dateOfLoss", e.target.value)} />
+                <Input
+                  type="date"
+                  value={formData.dateOfLoss}
+                  onChange={(e) => updateData("dateOfLoss", e.target.value)}
+                  data-testid="input-date-of-loss"
+                />
               </div>
             </div>
           )}
 
           {step === 2 && (
-             <div className="grid gap-4 md:grid-cols-2">
+            <div className="grid gap-4 md:grid-cols-2">
               <div className="space-y-2">
                 <Label>Year</Label>
-                <Input type="number" placeholder="2022" />
+                <Input
+                  type="number"
+                  placeholder="2022"
+                  value={formData.year}
+                  onChange={(e) => updateData("year", e.target.value)}
+                  data-testid="input-year"
+                />
               </div>
               <div className="space-y-2">
                 <Label>Make</Label>
-                <Input placeholder="Honda" />
+                <Input
+                  placeholder="Honda"
+                  value={formData.make}
+                  onChange={(e) => updateData("make", e.target.value)}
+                  data-testid="input-make"
+                />
               </div>
               <div className="space-y-2">
                 <Label>Model</Label>
-                <Input placeholder="Accord" />
+                <Input
+                  placeholder="Accord"
+                  value={formData.model}
+                  onChange={(e) => updateData("model", e.target.value)}
+                  data-testid="input-model"
+                />
               </div>
               <div className="space-y-2">
                 <Label>Trim</Label>
-                <Input placeholder="Sport 2.0T" />
+                <Input
+                  placeholder="Sport 2.0T"
+                  value={formData.trim}
+                  onChange={(e) => updateData("trim", e.target.value)}
+                  data-testid="input-trim"
+                />
               </div>
               <div className="space-y-2">
                 <Label>Mileage at Loss</Label>
-                <Input type="number" placeholder="25000" />
+                <Input
+                  type="number"
+                  placeholder="25000"
+                  value={formData.mileageAtLoss}
+                  onChange={(e) => updateData("mileageAtLoss", e.target.value)}
+                  data-testid="input-mileage"
+                />
               </div>
               <div className="space-y-2">
                 <Label>VIN</Label>
-                <Input placeholder="1HG..." />
+                <Input
+                  placeholder="1HG..."
+                  value={formData.vin}
+                  onChange={(e) => updateData("vin", e.target.value)}
+                  data-testid="input-vin"
+                />
               </div>
-             </div>
+            </div>
           )}
 
           {step === 3 && (
@@ -157,17 +367,34 @@ export default function CreateCase() {
                   <Label>Total Repair Cost</Label>
                   <div className="relative">
                     <span className="absolute left-3 top-2.5 text-slate-500">$</span>
-                    <Input className="pl-7" type="number" placeholder="4500.00" />
+                    <Input
+                      className="pl-7"
+                      type="number"
+                      placeholder="4500.00"
+                      value={formData.totalRepairCost}
+                      onChange={(e) => updateData("totalRepairCost", e.target.value)}
+                      data-testid="input-repair-cost"
+                    />
                   </div>
                 </div>
                 <div className="space-y-2">
                   <Label>Body Shop Name</Label>
-                  <Input placeholder="Joe's Collision Center" />
+                  <Input
+                    placeholder="Joe's Collision Center"
+                    value={formData.bodyShopName}
+                    onChange={(e) => updateData("bodyShopName", e.target.value)}
+                    data-testid="input-body-shop"
+                  />
                 </div>
               </div>
               <div className="space-y-2">
                 <Label>Key Impact Areas</Label>
-                <Textarea placeholder="Rear bumper, trunk lid, quarter panel..." />
+                <Textarea
+                  placeholder="Rear bumper, trunk lid, quarter panel..."
+                  value={formData.keyImpactAreas}
+                  onChange={(e) => updateData("keyImpactAreas", e.target.value)}
+                  data-testid="input-impact-areas"
+                />
               </div>
             </div>
           )}
@@ -175,37 +402,39 @@ export default function CreateCase() {
           {step === 4 && (
             <div className="space-y-6">
               <div className="bg-blue-50 p-4 rounded-md text-sm text-blue-800 mb-4">
-                <strong>Pro Tip:</strong> For the most accurate result, enter the NADA or Black Book value if you have it. Otherwise we will estimate.
+                <strong>Pro Tip:</strong> For the most accurate result, enter the NADA or Black
+                Book value if you have it. Otherwise we will estimate.
               </div>
               <div className="grid gap-4 md:grid-cols-2">
                 <div className="space-y-2">
-                  <Label>Pre-Accident Value (Clean Retail)</Label>
+                  <Label>Pre-Accident Value (Clean Retail) *</Label>
                   <div className="relative">
                     <span className="absolute left-3 top-2.5 text-slate-500">$</span>
-                    <Input className="pl-7" type="number" placeholder="28000" />
+                    <Input
+                      className="pl-7"
+                      type="number"
+                      placeholder="28000"
+                      value={formData.preAccidentValue}
+                      onChange={(e) => updateData("preAccidentValue", e.target.value)}
+                      data-testid="input-pre-value"
+                      required
+                    />
                   </div>
                 </div>
                 <div className="space-y-2">
-                  <Label>Post-Accident Value (Rough Trade-In)</Label>
+                  <Label>Post-Accident Value (Optional)</Label>
                   <div className="relative">
                     <span className="absolute left-3 top-2.5 text-slate-500">$</span>
-                    <Input className="pl-7" type="number" placeholder="22000" />
+                    <Input
+                      className="pl-7"
+                      type="number"
+                      placeholder="22000"
+                      value={formData.postAccidentValue}
+                      onChange={(e) => updateData("postAccidentValue", e.target.value)}
+                      data-testid="input-post-value"
+                    />
                   </div>
                 </div>
-              </div>
-
-              <div className="space-y-2">
-                <Label>Comparable Listings (Optional)</Label>
-                <Card className="bg-slate-50">
-                   <CardContent className="p-4 space-y-2">
-                      <div className="grid grid-cols-3 gap-2">
-                         <Input placeholder="Dealer Name" className="bg-white" />
-                         <Input placeholder="Price" className="bg-white" />
-                         <Input placeholder="Mileage" className="bg-white" />
-                      </div>
-                      <Button variant="outline" size="sm" className="w-full text-xs">+ Add Comp</Button>
-                   </CardContent>
-                </Card>
               </div>
             </div>
           )}
@@ -213,26 +442,61 @@ export default function CreateCase() {
           {step === 5 && (
             <div className="space-y-6">
               <div className="bg-emerald-50 border border-emerald-100 rounded-lg p-6 text-center">
-                <h3 className="font-serif text-xl font-bold text-emerald-800 mb-2">Ready to Calculate</h3>
-                <p className="text-emerald-700">We have everything we need to generate your Diminished Value Appraisal.</p>
+                <h3 className="font-serif text-xl font-bold text-emerald-800 mb-2">
+                  Ready to Calculate
+                </h3>
+                <p className="text-emerald-700">
+                  We have everything we need to generate your Diminished Value Appraisal.
+                </p>
               </div>
 
               <div className="grid grid-cols-2 gap-4 text-sm">
                 <div>
                   <span className="text-muted-foreground">Vehicle:</span>
-                  <div className="font-medium">2022 Honda Accord Sport</div>
+                  <div className="font-medium">
+                    {formData.year} {formData.make} {formData.model} {formData.trim}
+                  </div>
                 </div>
                 <div>
                   <span className="text-muted-foreground">Claim:</span>
-                  <div className="font-medium">State Farm #CLM-8821</div>
+                  <div className="font-medium">
+                    {formData.atFaultInsurerName || "Not specified"}{" "}
+                    {formData.claimNumber && `#${formData.claimNumber}`}
+                  </div>
                 </div>
                 <div>
                   <span className="text-muted-foreground">Repair Cost:</span>
-                  <div className="font-medium">$4,500.00</div>
+                  <div className="font-medium">
+                    {formData.totalRepairCost
+                      ? `$${parseFloat(formData.totalRepairCost).toLocaleString()}`
+                      : "Not specified"}
+                  </div>
                 </div>
                 <div>
                   <span className="text-muted-foreground">State:</span>
-                  <div className="font-medium">Georgia</div>
+                  <div className="font-medium">
+                    {formData.state === "GA"
+                      ? "Georgia"
+                      : formData.state === "FL"
+                        ? "Florida"
+                        : "North Carolina"}
+                  </div>
+                </div>
+                <div>
+                  <span className="text-muted-foreground">Pre-Accident Value:</span>
+                  <div className="font-medium">
+                    {formData.preAccidentValue
+                      ? `$${parseFloat(formData.preAccidentValue).toLocaleString()}`
+                      : "Not specified"}
+                  </div>
+                </div>
+                <div>
+                  <span className="text-muted-foreground">Mileage:</span>
+                  <div className="font-medium">
+                    {formData.mileageAtLoss
+                      ? parseInt(formData.mileageAtLoss).toLocaleString()
+                      : "Not specified"}
+                  </div>
                 </div>
               </div>
             </div>
@@ -240,17 +504,22 @@ export default function CreateCase() {
         </CardContent>
 
         <CardFooter className="flex justify-between border-t p-6 bg-slate-50 rounded-b-lg">
-          <Button variant="outline" onClick={prevStep} disabled={step === 1}>
+          <Button variant="outline" onClick={prevStep} disabled={step === 1 || isLoading} data-testid="button-back">
             <ChevronLeft className="mr-2 h-4 w-4" /> Back
           </Button>
-          
+
           {step < 5 ? (
-            <Button onClick={nextStep} className="bg-primary hover:bg-primary/90">
-              Next Step <ChevronRight className="ml-2 h-4 w-4" />
+            <Button onClick={nextStep} className="bg-primary hover:bg-primary/90" disabled={isLoading} data-testid="button-next">
+              {isLoading ? "Saving..." : "Next Step"} <ChevronRight className="ml-2 h-4 w-4" />
             </Button>
           ) : (
-             <Button onClick={finish} className="bg-emerald-600 hover:bg-emerald-700 text-white shadow-lg shadow-emerald-500/20">
-              Generate Appraisal Report
+            <Button
+              onClick={finish}
+              className="bg-emerald-600 hover:bg-emerald-700 text-white shadow-lg shadow-emerald-500/20"
+              disabled={isLoading}
+              data-testid="button-generate"
+            >
+              {isLoading ? "Calculating..." : "Generate Appraisal Report"}
             </Button>
           )}
         </CardFooter>
