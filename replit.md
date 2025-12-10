@@ -51,18 +51,47 @@ The server handles authentication, case CRUD operations, and pre-qualification e
 - Protected routes redirect to `/auth` when unauthenticated
 
 ### State-Specific Legal Context
-The platform includes a legal context service (`server/services/legalContext.ts`) with:
+The platform includes a legal context service (`server/services/stateLaw.ts`) with:
 - DV statute summaries per state
-- Key case law references (e.g., State Farm v. Mabry for Georgia)
+- Key case law references (e.g., State Farm v. Mabry, GEICO v. Bouldin for Georgia)
 - Negotiation angles for insurance disputes
 - Compliance notes including statutes of limitations
+- System prompts for AI with jurisdiction-specific instructions
+
+### Valuation Engine Services
+Located in `server/services/`:
+
+**marketData.ts** - MarketCheck API Integration:
+- `decodeVin()` - VIN decoding via NeoVIN Enhanced Decoder
+- `fetchRetailComps()` - Comparable retail listings (excludes auction/wholesale)
+- `fetchMarketPricing()` - Market pricing data to replace BlackBook values
+
+**appraisalEngine.ts** - Core Valuation Logic:
+- `generatePreAccidentValue()` - Combines MarketCheck price (60%) + comp median (40%)
+- `generatePostRepairValue()` - Stigma deduction based on repair severity, mileage, age, prior accidents, state
+- `computeDVAmount()` - Full DV calculation: Pre-Accident FMV - Post-Repair FMV
+- `quickEstimate()` - Fast estimate for pre-qualification
+
+**aiNarratives.ts** - OpenAI Integration:
+- `generateAppraisalNarrative()` - Professional appraisal report generation
+- `generateDemandLetter()` - Formal demand letter to insurers
+- `generateNegotiationResponse()` - Coaching for adjuster negotiations
+
+### API Endpoints
+New endpoints for valuation engine:
+- `POST /api/vin/decode` - Decode a VIN
+- `POST /api/comps` - Fetch comparable listings
+- `POST /api/appraisal/estimate` - Quick estimate (no AI)
+- `POST /api/appraisal/full` - Full appraisal with AI narrative generation
+- `POST /api/chat/negotiation` - Negotiation chatbot
+- `GET /api/chat/:caseId/history` - Chat history
 
 ## External Dependencies
 
-### Third-Party Services (Prepared but not required for MVP)
-- **OpenAI API:** For AI-powered negotiation assistant and chat features
-- **Stripe:** For payment processing (environment variable prepared)
-- **MarketCheck API:** For vehicle market data and valuations (referenced in attached requirements)
+### Third-Party Services
+- **OpenAI API:** For AI-powered appraisal narratives, demand letters, and negotiation coaching
+- **MarketCheck API:** For VIN decoding, comparable listings, and market pricing
+- **Stripe:** For payment processing (planned)
 
 ### Database
 - PostgreSQL database required via `DATABASE_URL` environment variable
@@ -80,4 +109,5 @@ The platform includes a legal context service (`server/services/legalContext.ts`
 - `DATABASE_URL` - PostgreSQL connection string
 - `SESSION_SECRET` - Express session secret (has dev fallback)
 - `OPENAI_API_KEY` - For AI features (optional for MVP)
+- `MARKETCHECK_API_KEY` - For MarketData valuation API
 - `STRIPE_SECRET_KEY` - For payments (optional for MVP)

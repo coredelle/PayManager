@@ -89,4 +89,62 @@ export const api = {
       return handleResponse(res);
     },
   },
+
+  vin: {
+    async decode(vin: string) {
+      const res = await fetch("/api/vin/decode", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ vin }),
+      });
+      return handleResponse(res);
+    },
+  },
+
+  comps: {
+    async fetch(data: { year: number; make: string; model: string; trim?: string; state?: string; mileage?: number; zip?: string }) {
+      const res = await fetch("/api/comps", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data),
+      });
+      return handleResponse(res);
+    },
+  },
+
+  appraisal: {
+    async estimate(data: { year: number; make: string; model: string; mileage: number; state: string; repairCost?: number; priorAccidents?: number }) {
+      const res = await fetch("/api/appraisal/estimate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data),
+      });
+      return handleResponse(res);
+    },
+
+    async full(caseId: string) {
+      const res = await fetch("/api/appraisal/full", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ caseId }),
+      });
+      return handleResponse(res);
+    },
+  },
+
+  chat: {
+    async sendMessage(caseId: string, message: string, tone?: "professional" | "firm" | "conciliatory") {
+      const res = await fetch("/api/chat/negotiation", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ caseId, message, tone }),
+      });
+      return handleResponse(res);
+    },
+
+    async getHistory(caseId: string) {
+      const res = await fetch(`/api/chat/${caseId}/history`);
+      return handleResponse(res);
+    },
+  },
 };

@@ -62,21 +62,46 @@ export const cases = pgTable("cases", {
   repairStartDate: text("repair_start_date"),
   repairEndDate: text("repair_end_date"),
   
-  // Valuation inputs
+  // User-provided accident history
+  priorAccidents: integer("prior_accidents").default(0),
+  
+  // VIN decode data from MarketData API
+  vinDecodeJson: text("vin_decode_json"),
+  drivetrain: text("drivetrain"),
+  engineType: text("engine_type"),
+  evBatteryPack: text("ev_battery_pack"),
+  
+  // Market pricing from MarketCheck API
+  marketCheckPrice: decimal("marketcheck_price", { precision: 10, scale: 2 }),
+  marketPriceRangeLow: decimal("market_price_range_low", { precision: 10, scale: 2 }),
+  marketPriceRangeHigh: decimal("market_price_range_high", { precision: 10, scale: 2 }),
+  mileageAdjustedPrice: decimal("mileage_adjusted_price", { precision: 10, scale: 2 }),
+  
+  // Comparable listings from MarketData API
+  compsJson: text("comps_json"),
+  compMedianPrice: decimal("comp_median_price", { precision: 10, scale: 2 }),
+  
+  // Legacy valuation inputs (retained for compatibility)
   blackBookCleanRetail: decimal("blackbook_clean_retail", { precision: 10, scale: 2 }),
   blackBookRoughRetail: decimal("blackbook_rough_retail", { precision: 10, scale: 2 }),
   thirdPartyPreAccidentValue: decimal("third_party_pre_accident_value", { precision: 10, scale: 2 }),
   thirdPartyPostAccidentValue: decimal("third_party_post_accident_value", { precision: 10, scale: 2 }),
   userNotes: text("user_notes"),
   marketNotes: text("market_notes"),
-  compsJson: text("comps_json"), // JSON array of comparable vehicles
   
   // Valuation results
   preAccidentValue: decimal("pre_accident_value", { precision: 10, scale: 2 }),
   postAccidentValue: decimal("post_accident_value", { precision: 10, scale: 2 }),
   diminishedValueAmount: decimal("diminished_value_amount", { precision: 10, scale: 2 }),
+  stigmaDeduction: decimal("stigma_deduction", { precision: 10, scale: 2 }),
   calculationDetails: text("calculation_details"),
+  valuationSummaryJson: text("valuation_summary_json"),
   calculatedAt: timestamp("calculated_at"),
+  
+  // AI-generated content
+  appraisalNarrative: text("appraisal_narrative"),
+  demandLetter: text("demand_letter"),
+  narrativeGeneratedAt: timestamp("narrative_generated_at"),
   
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
@@ -119,3 +144,20 @@ export const insertPrequalLeadSchema = createInsertSchema(prequalLeads).omit({
 
 export type InsertPrequalLead = z.infer<typeof insertPrequalLeadSchema>;
 export type PrequalLead = typeof prequalLeads.$inferSelect;
+
+// Negotiation chat messages
+export const chatMessages = pgTable("chat_messages", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  caseId: varchar("case_id").notNull().references(() => cases.id, { onDelete: "cascade" }),
+  role: text("role").notNull(), // "user" or "assistant"
+  content: text("content").notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const insertChatMessageSchema = createInsertSchema(chatMessages).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type InsertChatMessage = z.infer<typeof insertChatMessageSchema>;
+export type ChatMessage = typeof chatMessages.$inferSelect;

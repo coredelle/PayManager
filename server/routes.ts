@@ -5,6 +5,10 @@ import { storage } from "./storage";
 import { insertUserSchema, insertCaseSchema, insertPrequalLeadSchema } from "@shared/schema";
 import bcrypt from "bcrypt";
 import { z } from "zod";
+import { decodeVin, fetchRetailComps, fetchMarketPricing, getFullVehicleData } from "./services/marketData";
+import { computeDVAmount, quickEstimate, type AppraisalInput } from "./services/appraisalEngine";
+import { getStateLaw } from "./services/stateLaw";
+import { generateAppraisalNarrative, generateDemandLetter, generateNegotiationResponse } from "./services/aiNarratives";
 
 declare module "express-session" {
   interface SessionData {
@@ -300,6 +304,328 @@ export async function registerRoutes(
     } catch (error) {
       console.error("Prequal estimate error:", error);
       res.status(500).json({ message: "Failed to calculate estimate" });
+    }
+  });
+
+  // =====================
+  // VIN DECODE ROUTE
+  // =====================
+  
+  app.post("/api/vin/decode", requireAuth, async (req, res) => {
+    try {
+      const { vin } = req.body;
+      
+      if (!vin || vin.length !== 17) {
+        return res.status(400).json({ message: "Valid 17-character VIN is required" });
+      }
+      
+      const decoded = await decodeVin(vin);
+      res.json(decoded);
+    } catch (error) {
+      console.error("VIN decode error:", error);
+      res.status(500).json({ message: "Failed to decode VIN" });
+    }
+  });
+
+  // =====================
+  // COMPS ROUTE
+  // =====================
+  
+  app.post("/api/comps", requireAuth, async (req, res) => {
+    try {
+      const { year, make, model, trim, state, mileage, zip } = req.body;
+      
+      if (!year || !make || !model) {
+        return res.status(400).json({ message: "Year, make, and model are required" });
+      }
+      
+      const comps = await fetchRetailComps({
+        year: parseInt(year),
+        make,
+        model,
+        trim,
+        state,
+        mileage: mileage ? parseInt(mileage) : undefined,
+        zip,
+      });
+      
+      res.json({ comps });
+    } catch (error) {
+      console.error("Comps fetch error:", error);
+      res.status(500).json({ message: "Failed to fetch comparable listings" });
+    }
+  });
+
+  // =====================
+  // APPRAISAL ESTIMATE ROUTE (Quick, no AI)
+  // =====================
+  
+  app.post("/api/appraisal/estimate", requireAuth, async (req, res) => {
+    try {
+      const { year, make, model, mileage, state, repairCost, priorAccidents } = req.body;
+      
+      if (!year || !make || !model || !mileage || !state) {
+        return res.status(400).json({ message: "Vehicle information is required" });
+      }
+      
+      const pricing = await fetchMarketPricing({
+        year: parseInt(year),
+        make,
+        model,
+        mileage: parseInt(mileage),
+      });
+      
+      const comps = await fetchRetailComps({
+        year: parseInt(year),
+        make,
+        model,
+        state,
+        mileage: parseInt(mileage),
+      });
+      
+      const input: AppraisalInput = {
+        year: parseInt(year),
+        make,
+        model,
+        mileage: parseInt(mileage),
+        state: state as "GA" | "FL" | "NC",
+        repairCost: parseFloat(repairCost) || 5000,
+        priorAccidents: parseInt(priorAccidents) || 0,
+        isAtFault: false,
+      };
+      
+      const dvResult = computeDVAmount(pricing, comps, input);
+      
+      res.json({
+        pricing,
+        comps,
+        dvResult,
+      });
+    } catch (error) {
+      console.error("Appraisal estimate error:", error);
+      res.status(500).json({ message: "Failed to calculate estimate" });
+    }
+  });
+
+  // =====================
+  // FULL APPRAISAL ROUTE (with AI narrative)
+  // =====================
+  
+  app.post("/api/appraisal/full", requireAuth, async (req, res) => {
+    try {
+      const { caseId } = req.body;
+      
+      if (!caseId) {
+        return res.status(400).json({ message: "Case ID is required" });
+      }
+      
+      const caseData = await storage.getCase(caseId);
+      if (!caseData) {
+        return res.status(404).json({ message: "Case not found" });
+      }
+      if (caseData.userId !== req.session.userId) {
+        return res.status(403).json({ message: "Access denied" });
+      }
+      
+      let vinData = null;
+      if (caseData.vin) {
+        try {
+          vinData = await decodeVin(caseData.vin);
+        } catch (e) {
+          console.error("VIN decode failed:", e);
+        }
+      }
+      
+      const pricing = await fetchMarketPricing({
+        year: caseData.year,
+        make: caseData.make,
+        model: caseData.model,
+        trim: caseData.trim || undefined,
+        mileage: caseData.mileageAtLoss || undefined,
+        vin: caseData.vin || undefined,
+      });
+      
+      const comps = await fetchRetailComps({
+        year: caseData.year,
+        make: caseData.make,
+        model: caseData.model,
+        trim: caseData.trim || undefined,
+        state: caseData.state,
+        mileage: caseData.mileageAtLoss || undefined,
+      });
+      
+      const input: AppraisalInput = {
+        year: caseData.year,
+        make: caseData.make,
+        model: caseData.model,
+        trim: caseData.trim || undefined,
+        mileage: caseData.mileageAtLoss || 0,
+        state: caseData.state as "GA" | "FL" | "NC",
+        repairCost: parseFloat(caseData.totalRepairCost?.toString() || "0"),
+        priorAccidents: caseData.priorAccidents || 0,
+        isAtFault: false,
+        vinData: vinData || undefined,
+      };
+      
+      const dvResult = computeDVAmount(pricing, comps, input, vinData || undefined);
+      
+      const narrative = await generateAppraisalNarrative({
+        claimantName: undefined,
+        vehicleYear: caseData.year,
+        vehicleMake: caseData.make,
+        vehicleModel: caseData.model,
+        vehicleTrim: caseData.trim || undefined,
+        vin: caseData.vin || undefined,
+        mileage: caseData.mileageAtLoss || 0,
+        state: caseData.state as "GA" | "FL" | "NC",
+        dateOfLoss: caseData.dateOfLoss || undefined,
+        repairCost: parseFloat(caseData.totalRepairCost?.toString() || "0"),
+        insurerName: caseData.atFaultInsurerName || undefined,
+        claimNumber: caseData.claimNumber || undefined,
+        dvResult,
+        vinData: vinData || undefined,
+      }, comps);
+      
+      const demandLetter = await generateDemandLetter({
+        vehicleYear: caseData.year,
+        vehicleMake: caseData.make,
+        vehicleModel: caseData.model,
+        vehicleTrim: caseData.trim || undefined,
+        vin: caseData.vin || undefined,
+        mileage: caseData.mileageAtLoss || 0,
+        state: caseData.state as "GA" | "FL" | "NC",
+        dateOfLoss: caseData.dateOfLoss || undefined,
+        repairCost: parseFloat(caseData.totalRepairCost?.toString() || "0"),
+        insurerName: caseData.atFaultInsurerName || undefined,
+        claimNumber: caseData.claimNumber || undefined,
+        dvResult,
+      });
+      
+      const compMedianPrice = comps.length > 0
+        ? comps.map(c => c.price).sort((a, b) => a - b)[Math.floor(comps.length / 2)]
+        : null;
+      
+      const updated = await storage.updateCase(caseId, {
+        vinDecodeJson: vinData ? JSON.stringify(vinData) : null,
+        drivetrain: vinData?.drivetrain || null,
+        engineType: vinData?.engineType || null,
+        evBatteryPack: vinData?.evBatteryPack || null,
+        marketCheckPrice: pricing.fairRetailPrice.toString(),
+        marketPriceRangeLow: pricing.priceRangeLow.toString(),
+        marketPriceRangeHigh: pricing.priceRangeHigh.toString(),
+        mileageAdjustedPrice: pricing.mileageAdjustedPrice.toString(),
+        compsJson: JSON.stringify(comps),
+        compMedianPrice: compMedianPrice?.toString() || null,
+        preAccidentValue: dvResult.preAccidentValue.toString(),
+        postAccidentValue: dvResult.postRepairValue.toString(),
+        diminishedValueAmount: dvResult.diminishedValue.toString(),
+        stigmaDeduction: dvResult.stigmaDeduction.toString(),
+        calculationDetails: dvResult.methodology,
+        valuationSummaryJson: JSON.stringify(dvResult.breakdown),
+        appraisalNarrative: narrative,
+        demandLetter: demandLetter,
+        narrativeGeneratedAt: new Date(),
+        status: "ready_for_download",
+      });
+      
+      res.json({
+        case: updated,
+        pricing,
+        comps,
+        dvResult,
+        narrative,
+        demandLetter,
+      });
+    } catch (error) {
+      console.error("Full appraisal error:", error);
+      res.status(500).json({ message: "Failed to generate full appraisal" });
+    }
+  });
+
+  // =====================
+  // NEGOTIATION CHAT ROUTE
+  // =====================
+  
+  app.post("/api/chat/negotiation", requireAuth, async (req, res) => {
+    try {
+      const { caseId, message, tone } = req.body;
+      
+      if (!caseId || !message) {
+        return res.status(400).json({ message: "Case ID and message are required" });
+      }
+      
+      const caseData = await storage.getCase(caseId);
+      if (!caseData) {
+        return res.status(404).json({ message: "Case not found" });
+      }
+      if (caseData.userId !== req.session.userId) {
+        return res.status(403).json({ message: "Access denied" });
+      }
+      
+      await storage.createChatMessage({
+        caseId,
+        role: "user",
+        content: message,
+      });
+      
+      const previousMessages = await storage.getChatMessagesByCase(caseId);
+      const conversationHistory = previousMessages.slice(-10).map(m => ({
+        role: m.role as "user" | "assistant",
+        content: m.content,
+      }));
+      
+      const response = await generateNegotiationResponse(
+        {
+          caseId,
+          state: caseData.state as "GA" | "FL" | "NC",
+          vehicleYear: caseData.year,
+          vehicleMake: caseData.make,
+          vehicleModel: caseData.model,
+          dvAmount: parseFloat(caseData.diminishedValueAmount?.toString() || "0"),
+          preAccidentValue: parseFloat(caseData.preAccidentValue?.toString() || "0"),
+          repairCost: parseFloat(caseData.totalRepairCost?.toString() || "0"),
+          insurerName: caseData.atFaultInsurerName || undefined,
+          conversationHistory,
+        },
+        message,
+        tone || "professional"
+      );
+      
+      const assistantMessage = await storage.createChatMessage({
+        caseId,
+        role: "assistant",
+        content: response,
+      });
+      
+      res.json({
+        message: assistantMessage,
+        response,
+      });
+    } catch (error) {
+      console.error("Negotiation chat error:", error);
+      res.status(500).json({ message: "Failed to generate response" });
+    }
+  });
+
+  // =====================
+  // CHAT HISTORY ROUTE
+  // =====================
+  
+  app.get("/api/chat/:caseId/history", requireAuth, async (req, res) => {
+    try {
+      const caseData = await storage.getCase(req.params.caseId);
+      if (!caseData) {
+        return res.status(404).json({ message: "Case not found" });
+      }
+      if (caseData.userId !== req.session.userId) {
+        return res.status(403).json({ message: "Access denied" });
+      }
+      
+      const messages = await storage.getChatMessagesByCase(req.params.caseId);
+      res.json({ messages });
+    } catch (error) {
+      console.error("Chat history error:", error);
+      res.status(500).json({ message: "Failed to fetch chat history" });
     }
   });
 

@@ -5,9 +5,12 @@ import {
   type InsertCase,
   type PrequalLead,
   type InsertPrequalLead,
+  type ChatMessage,
+  type InsertChatMessage,
   users,
   cases,
   prequalLeads,
+  chatMessages,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, and, desc } from "drizzle-orm";
@@ -28,6 +31,10 @@ export interface IStorage {
   // Prequal lead methods
   createPrequalLead(lead: InsertPrequalLead): Promise<PrequalLead>;
   getPrequalLead(id: string): Promise<PrequalLead | undefined>;
+  
+  // Chat message methods
+  getChatMessagesByCase(caseId: string): Promise<ChatMessage[]>;
+  createChatMessage(message: InsertChatMessage): Promise<ChatMessage>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -81,6 +88,18 @@ export class DatabaseStorage implements IStorage {
   async getPrequalLead(id: string): Promise<PrequalLead | undefined> {
     const [lead] = await db.select().from(prequalLeads).where(eq(prequalLeads.id, id)).limit(1);
     return lead;
+  }
+
+  // Chat message methods
+  async getChatMessagesByCase(caseId: string): Promise<ChatMessage[]> {
+    return db.select().from(chatMessages)
+      .where(eq(chatMessages.caseId, caseId))
+      .orderBy(chatMessages.createdAt);
+  }
+
+  async createChatMessage(message: InsertChatMessage): Promise<ChatMessage> {
+    const [newMessage] = await db.insert(chatMessages).values(message).returning();
+    return newMessage;
   }
 }
 
