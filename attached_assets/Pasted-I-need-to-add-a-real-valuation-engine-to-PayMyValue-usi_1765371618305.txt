@@ -1,0 +1,273 @@
+I need to add a real valuation engine to PayMyValue using MarketData APIs and OpenAI.
+Do NOT use auction APIs. Do NOT assume I have CARFAX.
+MarketData must be the only data source for VIN decoding, comps, and pricing.
+
+Please create a new backend service in the project at:
+
+/server/services/appraisalEngine.ts
+
+
+This module will connect to MarketData and OpenAI and will power:
+
+Free pre-approval estimates
+
+Full diminished value appraisal generation
+
+Demand letter generation
+
+Negotiation chatbot responses
+
+Follow the instructions below exactly.
+
+1. MarketData API Integration (ONLY these APIs)
+
+Create a file:
+
+/server/services/marketData.ts
+
+
+Inside this file implement the following wrappers:
+
+1. VIN decoding (no assumptions about CARFAX)
+
+Use MarketData’s NeoVIN Enhanced Decoder API for:
+
+year
+
+make
+
+model
+
+trim
+
+drivetrain
+
+engine / motor type
+
+EV battery pack when available
+
+Create function:
+
+async function decodeVin(vin: string): Promise<DecodedVin>
+
+
+Return a typed object with all relevant vehicle attributes.
+
+2. Comparable Listings (Retail only)
+
+Use Inventory Search API and Dealer Recent Inventory Search API to fetch RETAIL listings only.
+
+Create:
+
+async function fetchRetailComps({year, make, model, trim, state, mileage}): Promise<CompVehicle[]>
+
+
+Rules:
+
+Return 3–5 comps closest in mileage
+
+Must match year, make, model; trim if available
+
+Filter out wholesale or auction listings
+
+Include dealer name, phone, VIN, price, mileage, listing URL
+
+Format comps exactly like those shown in the Rivian appraisal (turn1file2).
+
+
+3. Market Pricing (BlackBook alternative)
+
+Use Cars MarketCheck Price US USED Premium API to compute retail Fair Market Value pre-accident.
+
+Create:
+
+async function fetchMarketPricing({year, make, model, trim, mileage}): Promise<MarketPricing>
+
+
+Return:
+
+fairRetailPrice
+
+priceRangeLow
+
+priceRangeHigh
+
+mileageAdjustedPrice
+
+This will replace BlackBook values.
+
+2. Appraisal Engine Logic
+
+In appraisalEngine.ts, create these functions:
+
+A. generatePreAccidentValue()
+
+Combine:
+
+MarketCheck retail price
+
+Average of comps
+
+VIN attributes
+
+Return a single preAccidentValue number.
+
+Follow the structure used in the Select Auto Appraisals report (clean retail, rough retail, comps).
+
+
+B. generatePostRepairValue()
+
+Since we cannot use auction pricing and have no CARFAX, estimate post-repair FMV using:
+
+Repair cost severity
+
+Mileage
+
+Age of vehicle
+
+Whether user is at-fault or not
+
+Number of prior accidents (user-provided field)
+
+Use stigma deduction logic similar to the example appraisal report (turn1file2):
+
+
+postRepairValue = preAccidentValue - stigmaDeduction
+
+
+Stigma deduction must increase as:
+
+repair cost increases
+
+mileage increases
+
+prior accidents > 0
+
+age decreases (newer cars lose more value)
+
+Return { postRepairValue, stigmaDeduction }.
+
+C. computeDVAmount()
+dvAmount = preAccidentValue - postRepairValue
+
+
+This is the diminished value.
+
+3. State Law Injection for OpenAI
+
+Create stateLaw.ts with:
+
+Georgia law (must be included verbatim in system prompt)
+
+Pull directly from:
+
+Perma Ad Ideas of America, Inc. v. Mayville (DV = difference in value before and after repairs)
+
+Georgia DOI Directive 08-P&C-2 (no formula approved, each claim must consider all relevant evidence)
+
+
+Include:
+
+DV measure
+
+Prohibition on 17(c) as definitive
+
+Requirement to consider insured’s evidence
+
+No mandated formula
+
+Florida & North Carolina
+
+Add placeholders:
+
+"DV is recoverable depending on insurer liability and state-specific tort rules. Do not assert formulas. Only explain principles."
+
+
+The AI system should ALWAYS include state law context in its reasoning.
+
+4. OpenAI Integration
+
+Create:
+
+async function generateAppraisalNarrative(data, comps, stateLaw)
+async function generateDemandLetter(data, dvAmount, stateLaw)
+async function generateNegotiationResponse(conversation, claimData, stateLaw, tone)
+
+
+System prompt must include:
+
+The structure of your sample DV appraisal narrative (turn1file2)
+
+The wording style of your demand letter (turn1file0)
+
+The negotiation coaching behaviors described in the Narrative Overview (turn1file3)
+
+Do not hallucinate statutes
+
+Only apply the state legal rules provided
+
+Never claim 17(c) is valid or mandated under Georgia law
+(directly supported by the DOI directive)
+
+5. API Endpoint Integration
+
+Create new endpoints:
+
+POST /api/vin/decode
+POST /api/comps
+POST /api/appraisal/estimate
+POST /api/appraisal/full
+POST /api/chat/negotiation
+
+
+Each endpoint should:
+
+Call the MarketData wrapper
+
+Call the appraisal engine
+
+Call OpenAI
+
+Return structured JSON to the frontend
+
+6. NO AUCTION DATA, NO CARFAX ASSUMPTIONS
+
+Ensure all valuation steps only rely on:
+
+User inputs
+
+MarketData APIs
+
+State law rules
+
+If VIN history is needed, rely on user-provided accident count.
+
+7. Add complete in-code comments explaining:
+
+How comps were chosen
+
+How pre-accident FMV is computed
+
+How stigma deduction works
+
+How state law instructions are injected
+
+How to update valuation formulas later
+
+Build this entire module structure so the rest of the app can connect to it.
+
+✅ END OF PROMPT FOR REPLIT
+
+If you want, I can now give you the exact system prompt for OpenAI to ensure:
+
+Legally correct DV explanations
+
+Adjuster negotiation coaching
+
+State-specific answers
+
+Tone control
+
+Zero hallucinations
+
+Just say: “Give me the OpenAI system prompt.”
