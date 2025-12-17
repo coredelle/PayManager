@@ -8,7 +8,7 @@ export function Footer() {
           <div>
             <h3 className="font-serif font-bold text-xl mb-4">PayMyValue</h3>
             <p className="text-sm text-slate-400 leading-relaxed">
-              IACP-certified diminished value and total loss appraisals for everyday drivers. Recover the full amount you are owed.
+              IACP certified diminished value and total loss appraisals for everyday drivers. Recover the full amount you are owed.
             </p>
           </div>
           <div>
@@ -32,7 +32,7 @@ export function Footer() {
           <div>
             <h4 className="font-semibold mb-4 text-slate-200">Legal Disclaimer</h4>
             <p className="text-xs text-slate-500 leading-relaxed">
-              PayMyValue is not a law firm and does not provide legal advice. Our reports are IACP-certified appraisals based on market data and accepted industry standards.
+              PayMyValue is not a law firm and does not provide legal advice. Our reports are IACP certified appraisals based on market data and accepted industry standards.
             </p>
           </div>
         </div>
