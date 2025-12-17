@@ -1,10 +1,14 @@
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { CheckCircle2, DollarSign, FileText, ArrowRight, ShieldCheck, Sparkles } from "lucide-react";
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from "@/components/ui/accordion";
+import { CheckCircle2, DollarSign, FileText, ArrowRight, ShieldCheck, Award, MessageSquare, TrendingUp, ClipboardCheck, Zap } from "lucide-react";
 import { Link } from "wouter";
-import heroImage from "@assets/generated_images/professional_automotive_financial_abstract_background.png";
-import aiHeroBg from "@assets/generated_images/dark_futuristic_financial_ai_abstract_background.png";
 import { useState } from "react";
 import { PrequalModal } from "@/components/features/PrequalModal";
 
@@ -12,131 +16,271 @@ export default function LandingPage() {
   const [showPrequal, setShowPrequal] = useState(false);
 
   return (
-    <div className="flex flex-col gap-20 pb-20">
+    <div className="flex flex-col">
       <PrequalModal isOpen={showPrequal} onOpenChange={setShowPrequal} />
 
       {/* Hero Section */}
-      <section className="relative pt-24 pb-36 overflow-hidden bg-slate-950 text-white">
+      <section className="relative pt-20 pb-24 overflow-hidden bg-slate-950 text-white">
         <div className="absolute inset-0 z-0">
-           {/* Fallback color if image fails to load, plus the AI gradient image */}
-           <div className="absolute inset-0 bg-slate-950" />
-           <img src={aiHeroBg} alt="AI Technology Background" className="w-full h-full object-cover opacity-60" />
-           {/* Gradient overlays for readability */}
-           <div className="absolute inset-0 bg-gradient-to-r from-slate-950 via-slate-950/80 to-transparent"></div>
-           <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-transparent to-transparent"></div>
+          <div className="absolute inset-0 bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950" />
+          <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-emerald-900/20 via-transparent to-transparent" />
         </div>
         
         <div className="container mx-auto px-4 relative z-10">
-          <div className="max-w-3xl animate-in slide-in-from-left-4 duration-700 fade-in">
-            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full border border-emerald-500/30 bg-emerald-500/10 text-emerald-400 text-sm font-medium mb-6 backdrop-blur-sm">
-              <Sparkles className="h-3 w-3" />
-              Certified Auto Appraisal in minutes not days
+          <div className="max-w-4xl mx-auto text-center">
+            <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full border border-emerald-500/30 bg-emerald-500/10 text-emerald-400 text-sm font-medium mb-8 backdrop-blur-sm" data-testid="badge-iacp">
+              <Award className="h-4 w-4" />
+              IACP-certified diminished value appraisal • Insurer and court recognized
             </div>
             
-            <h1 className="text-5xl md:text-7xl font-serif font-bold leading-tight mb-6 tracking-tight">
-              See Your Car’s <span className="text-transparent bg-clip-text bg-gradient-to-r from-emerald-400 to-blue-500">Lost Value</span> In Seconds
+            <h1 className="text-4xl md:text-5xl lg:text-6xl font-serif font-bold leading-tight mb-6 tracking-tight" data-testid="hero-title">
+              Get an IACP-certified diminished value appraisal instantly
             </h1>
             
-            <p className="text-xl text-slate-300 mb-10 leading-relaxed max-w-2xl">
-              Check if you’re pre-qualified for a diminished value payout with a free AI-powered estimate. Then upgrade to a certified appraisal and demand letter in minutes, not days.
+            <p className="text-lg md:text-xl text-slate-300 mb-10 leading-relaxed max-w-3xl mx-auto" data-testid="hero-subtitle">
+              Receive a court-ready, IACP-certified diminished value appraisal backed by industry-standard valuation data, real-time market comparables, and state-specific case law. Built for attorneys and insurance adjusters. Faster, clearer, and more affordable.
             </p>
             
-            <div className="flex flex-col sm:flex-row gap-5">
+            <div className="flex flex-col sm:flex-row gap-4 justify-center mb-8">
               <Button 
                 size="lg" 
                 onClick={() => setShowPrequal(true)}
                 className="bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold text-lg px-8 h-14 shadow-[0_0_20px_rgba(16,185,129,0.3)] border border-emerald-400/50"
+                data-testid="button-free-estimate"
               >
-                Get My Free Estimate (30s)
+                Free eligibility + estimated compensation
                 <ArrowRight className="ml-2 h-5 w-5" />
               </Button>
               
               <Link href="/dashboard">
-                <Button variant="outline" size="lg" className="text-white border-white/20 hover:bg-white/10 h-14 text-base backdrop-blur-sm">
-                  Start Full Appraisal ($299)
+                <Button variant="outline" size="lg" className="text-white border-white/30 hover:bg-white/10 h-14 text-lg px-8 backdrop-blur-sm w-full sm:w-auto" data-testid="button-generate-appraisal">
+                  Generate my IACP-certified diminished value appraisal ($299)
                 </Button>
               </Link>
             </div>
             
-            <div className="mt-8 flex items-center gap-4 text-sm font-medium text-slate-400">
-              <div className="flex items-center gap-2">
-                <span className="h-1.5 w-1.5 rounded-full bg-emerald-500"></span>
-                Average check: $3,400
-              </div>
-              <div className="h-4 w-px bg-slate-800"></div>
-              <div>Specialized in GA, FL, NC</div>
+            <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-slate-800/50 text-slate-300 text-sm font-medium" data-testid="badge-states">
+              <ShieldCheck className="h-4 w-4 text-emerald-400" />
+              Specialized in Georgia, Florida, and North Carolina
             </div>
           </div>
         </div>
       </section>
 
-      {/* Features Grid */}
-      <section className="container mx-auto px-4">
-        <div className="text-center max-w-2xl mx-auto mb-16">
-          <h2 className="text-3xl font-serif font-bold mb-4">Why you need a professional appraisal</h2>
-          <p className="text-muted-foreground">
-            After an accident, repairs fix the car, but they don't fix the value history. You are owed the difference.
-          </p>
-        </div>
+      {/* Why You Need a Professional Appraisal */}
+      <section className="py-20 bg-white" data-testid="section-why-appraisal">
+        <div className="container mx-auto px-4">
+          <div className="text-center max-w-3xl mx-auto mb-16">
+            <h2 className="text-3xl md:text-4xl font-serif font-bold mb-4">Why you need a professional appraisal</h2>
+            <p className="text-lg text-muted-foreground">
+              After an accident, shops repair the damage. No one fixes the lost value. That is diminished value, and that is what we recover so you are made whole.
+            </p>
+          </div>
 
-        <div className="grid md:grid-cols-3 gap-8">
-          <Card className="bg-secondary/20 border-none shadow-none">
-            <CardContent className="pt-6">
-              <div className="h-12 w-12 rounded-lg bg-blue-100 flex items-center justify-center mb-4 text-blue-700">
-                <DollarSign className="h-6 w-6" />
-              </div>
-              <h3 className="font-semibold text-xl mb-2">Accurate Valuations</h3>
-              <p className="text-muted-foreground">
-                We use real market data, comparable listings, and Black Book values to calculate the exact loss in value for your specific VIN.
-              </p>
-            </CardContent>
-          </Card>
-          
-          <Card className="bg-secondary/20 border-none shadow-none">
-            <CardContent className="pt-6">
-              <div className="h-12 w-12 rounded-lg bg-blue-100 flex items-center justify-center mb-4 text-blue-700">
-                <FileText className="h-6 w-6" />
-              </div>
-              <h3 className="font-semibold text-xl mb-2">Professional Reports</h3>
-              <p className="text-muted-foreground">
-                Get a comprehensive 15+ page PDF report that looks professional and cites the specific state statutes relevant to your claim.
-              </p>
-            </CardContent>
-          </Card>
+          <div className="grid md:grid-cols-3 gap-8 max-w-6xl mx-auto">
+            <Card className="bg-slate-50 border-none shadow-sm hover:shadow-md transition-shadow" data-testid="card-accurate-valuations">
+              <CardContent className="pt-8 pb-8">
+                <div className="h-14 w-14 rounded-xl bg-emerald-100 flex items-center justify-center mb-6 text-emerald-700">
+                  <TrendingUp className="h-7 w-7" />
+                </div>
+                <h3 className="font-semibold text-xl mb-3">Accurate valuations</h3>
+                <p className="text-muted-foreground leading-relaxed">
+                  We use industry-standard valuation data, comparable retail listings, and real-time market insights to calculate the precise loss in value for your VIN. This ensures you receive maximum compensation for your vehicle's diminished value.
+                </p>
+              </CardContent>
+            </Card>
+            
+            <Card className="bg-slate-50 border-none shadow-sm hover:shadow-md transition-shadow" data-testid="card-professional-reports">
+              <CardContent className="pt-8 pb-8">
+                <div className="h-14 w-14 rounded-xl bg-blue-100 flex items-center justify-center mb-6 text-blue-700">
+                  <FileText className="h-7 w-7" />
+                </div>
+                <h3 className="font-semibold text-xl mb-3">Professional reports</h3>
+                <p className="text-muted-foreground leading-relaxed">
+                  Get a comprehensive, IACP-certified appraisal that cites the specific statutes and case law for your state. Your appraisal is court-ready and accepted by insurers.
+                </p>
+              </CardContent>
+            </Card>
 
-          <Card className="bg-secondary/20 border-none shadow-none">
-            <CardContent className="pt-6">
-              <div className="h-12 w-12 rounded-lg bg-blue-100 flex items-center justify-center mb-4 text-blue-700">
-                <ShieldCheck className="h-6 w-6" />
-              </div>
-              <h3 className="font-semibold text-xl mb-2">Demand Letters</h3>
-              <p className="text-muted-foreground">
-                We auto-generate a strong legal demand letter tailored to the adjuster, ready for you to sign and send.
-              </p>
-            </CardContent>
-          </Card>
+            <Card className="bg-slate-50 border-none shadow-sm hover:shadow-md transition-shadow" data-testid="card-demand-letters">
+              <CardContent className="pt-8 pb-8">
+                <div className="h-14 w-14 rounded-xl bg-purple-100 flex items-center justify-center mb-6 text-purple-700">
+                  <ShieldCheck className="h-7 w-7" />
+                </div>
+                <h3 className="font-semibold text-xl mb-3">Demand letters</h3>
+                <p className="text-muted-foreground leading-relaxed">
+                  Your package includes a strong demand letter tailored to your adjuster. Start your claim on solid legal and valuation footing.
+                </p>
+              </CardContent>
+            </Card>
+          </div>
         </div>
       </section>
 
-      {/* Social Proof / Stats */}
-      <section className="bg-slate-900 py-20 text-white">
-        <div className="container mx-auto px-4 text-center">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8 divide-y md:divide-y-0 md:divide-x divide-slate-800">
-            <div>
-              <div className="text-4xl font-bold text-blue-400 mb-2">$3,400</div>
-              <div className="text-slate-400">Average Diminished Value Check</div>
+      {/* End-to-End Support Section */}
+      <section className="py-20 bg-slate-50" data-testid="section-end-to-end">
+        <div className="container mx-auto px-4">
+          <div className="max-w-4xl mx-auto">
+            <div className="flex flex-col md:flex-row gap-12 items-center">
+              <div className="flex-1">
+                <div className="h-16 w-16 rounded-2xl bg-emerald-500 flex items-center justify-center mb-6 text-white">
+                  <MessageSquare className="h-8 w-8" />
+                </div>
+                <h2 className="text-3xl md:text-4xl font-serif font-bold mb-6">We help you all the way to your diminished value check</h2>
+                <p className="text-lg text-muted-foreground leading-relaxed mb-6">
+                  Most appraisal companies hand you a report and disappear. We guide you end to end. When the insurer responds, upload their message. Our system drafts a clear response based on case law, valuation logic, and proven negotiation strategy.
+                </p>
+                <p className="text-lg text-muted-foreground leading-relaxed">
+                  We help you interpret low offers, choose the right tone, and send strong counters until your diminished value check arrives.
+                </p>
+              </div>
+              <div className="flex-shrink-0">
+                <div className="w-64 h-64 rounded-full bg-gradient-to-br from-emerald-100 to-emerald-200 flex items-center justify-center">
+                  <div className="text-center">
+                    <CheckCircle2 className="h-16 w-16 text-emerald-600 mx-auto mb-2" />
+                    <span className="text-emerald-800 font-semibold">Full Support</span>
+                  </div>
+                </div>
+              </div>
             </div>
-            <div>
-              <div className="text-4xl font-bold text-blue-400 mb-2">100%</div>
-              <div className="text-slate-400">Money Back Guarantee</div>
+          </div>
+        </div>
+      </section>
+
+      {/* Stats Section */}
+      <section className="bg-slate-900 py-16 text-white" data-testid="section-stats">
+        <div className="container mx-auto px-4">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-4xl mx-auto text-center">
+            <div className="py-4" data-testid="stat-average-recovery">
+              <div className="text-4xl md:text-5xl font-bold text-emerald-400 mb-2">$3,400</div>
+              <div className="text-slate-400">Average diminished value recovery</div>
             </div>
-            <div>
-              <div className="text-4xl font-bold text-blue-400 mb-2">3 States</div>
+            <div className="py-4 md:border-l md:border-r border-slate-700" data-testid="stat-guarantee">
+              <div className="text-4xl md:text-5xl font-bold text-emerald-400 mb-2">100%</div>
+              <div className="text-slate-400">Money-back guarantee</div>
+            </div>
+            <div className="py-4" data-testid="stat-states">
+              <div className="text-4xl md:text-5xl font-bold text-emerald-400 mb-2">3 states</div>
               <div className="text-slate-400">Specialized in GA, FL, NC</div>
             </div>
           </div>
         </div>
       </section>
+
+      {/* What is Diminished Value - SEO Section */}
+      <section className="py-20 bg-white" data-testid="section-what-is-dv">
+        <div className="container mx-auto px-4">
+          <div className="max-w-3xl mx-auto text-center">
+            <h2 className="text-3xl md:text-4xl font-serif font-bold mb-6">What is diminished value?</h2>
+            <p className="text-lg text-muted-foreground leading-relaxed">
+              When your car has an accident, even after quality repairs, buyers will not pay the same price they would have before the crash. The difference in resale value is diminished value. Insurers are required to compensate you for this loss when you are not at fault. Our IACP-certified diminished value appraisal calculates your vehicle's true loss in value and prepares everything you need to claim it.
+            </p>
+          </div>
+        </div>
+      </section>
+
+      {/* How It Works */}
+      <section className="py-20 bg-slate-50" data-testid="section-how-it-works">
+        <div className="container mx-auto px-4">
+          <div className="text-center mb-16">
+            <h2 className="text-3xl md:text-4xl font-serif font-bold mb-4">How it works</h2>
+          </div>
+
+          <div className="grid md:grid-cols-3 gap-8 max-w-5xl mx-auto">
+            <div className="text-center" data-testid="step-1">
+              <div className="h-16 w-16 rounded-full bg-emerald-500 text-white flex items-center justify-center text-2xl font-bold mx-auto mb-6">1</div>
+              <h3 className="font-semibold text-xl mb-3">Check eligibility</h3>
+              <p className="text-muted-foreground">
+                Enter your vehicle and accident details to confirm you qualify.
+              </p>
+            </div>
+            
+            <div className="text-center" data-testid="step-2">
+              <div className="h-16 w-16 rounded-full bg-emerald-500 text-white flex items-center justify-center text-2xl font-bold mx-auto mb-6">2</div>
+              <h3 className="font-semibold text-xl mb-3">Generate your certified appraisal</h3>
+              <p className="text-muted-foreground">
+                Instantly receive your full appraisal package, including a demand letter and state-specific legal references.
+              </p>
+            </div>
+
+            <div className="text-center" data-testid="step-3">
+              <div className="h-16 w-16 rounded-full bg-emerald-500 text-white flex items-center justify-center text-2xl font-bold mx-auto mb-6">3</div>
+              <h3 className="font-semibold text-xl mb-3">Negotiate with confidence</h3>
+              <p className="text-muted-foreground">
+                Upload insurer messages and get guided counter-responses until your diminished value check is paid.
+              </p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* FAQ Section */}
+      <section className="py-20 bg-white" data-testid="section-faq">
+        <div className="container mx-auto px-4">
+          <div className="text-center mb-12">
+            <h2 className="text-3xl md:text-4xl font-serif font-bold mb-4">Frequently asked questions</h2>
+          </div>
+
+          <div className="max-w-3xl mx-auto">
+            <Accordion type="single" collapsible className="w-full">
+              <AccordionItem value="item-1" data-testid="faq-iacp">
+                <AccordionTrigger className="text-left text-lg font-medium">
+                  What does IACP-certified mean?
+                </AccordionTrigger>
+                <AccordionContent className="text-muted-foreground text-base leading-relaxed">
+                  It means your appraisal is produced by an appraiser certified by the Bureau of Certified Auto Appraisers (IACP) and follows accepted industry and legal standards used by insurers and courts.
+                </AccordionContent>
+              </AccordionItem>
+
+              <AccordionItem value="item-2" data-testid="faq-states">
+                <AccordionTrigger className="text-left text-lg font-medium">
+                  Do I need a diminished value appraisal in Georgia, Florida, or North Carolina?
+                </AccordionTrigger>
+                <AccordionContent className="text-muted-foreground text-base leading-relaxed">
+                  Yes. These states recognize diminished value claims in many not-at-fault accidents. A certified appraisal helps prove your loss with market data and law citations.
+                </AccordionContent>
+              </AccordionItem>
+
+              <AccordionItem value="item-3" data-testid="faq-accepted">
+                <AccordionTrigger className="text-left text-lg font-medium">
+                  Will insurers accept this appraisal?
+                </AccordionTrigger>
+                <AccordionContent className="text-muted-foreground text-base leading-relaxed">
+                  Our reports are designed for insurer review and court use. They cite valuation sources, comps, and state-specific authority to substantiate the diminished value amount.
+                </AccordionContent>
+              </AccordionItem>
+
+              <AccordionItem value="item-4" data-testid="faq-recovery">
+                <AccordionTrigger className="text-left text-lg font-medium">
+                  How much can I recover?
+                </AccordionTrigger>
+                <AccordionContent className="text-muted-foreground text-base leading-relaxed">
+                  Payouts vary by vehicle, damage, and market conditions. Use the free eligibility tool for an estimated range, then generate your certified appraisal to support your claim.
+                </AccordionContent>
+              </AccordionItem>
+
+              <AccordionItem value="item-5" data-testid="faq-lowball">
+                <AccordionTrigger className="text-left text-lg font-medium">
+                  What if the adjuster lowballs me?
+                </AccordionTrigger>
+                <AccordionContent className="text-muted-foreground text-base leading-relaxed">
+                  Upload the offer. We generate a tailored counter with valuation logic and legal support so you can negotiate from a position of strength.
+                </AccordionContent>
+              </AccordionItem>
+
+              <AccordionItem value="item-6" data-testid="faq-speed">
+                <AccordionTrigger className="text-left text-lg font-medium">
+                  How fast is the process?
+                </AccordionTrigger>
+                <AccordionContent className="text-muted-foreground text-base leading-relaxed">
+                  Eligibility is instant. Your appraisal is generated the same day. Negotiation timelines depend on insurer response cycles.
+                </AccordionContent>
+              </AccordionItem>
+            </Accordion>
+          </div>
+        </div>
+      </section>
+
     </div>
   );
 }

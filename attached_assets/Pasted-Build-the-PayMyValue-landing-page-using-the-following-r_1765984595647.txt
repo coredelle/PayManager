@@ -1,0 +1,112 @@
+Build the PayMyValue landing page using the following requirements.
+Do NOT change wording unless necessary for formatting.
+Use clean HTML/CSS or the existing framework in the Replit project.
+
+PAGE REQUIREMENTS
+
+HERO SECTION
+
+Micro badge: “IACP-certified diminished value appraisal • Insurer and court recognized”
+
+H1: “Get an IACP-certified diminished value appraisal instantly”
+
+Subheadline:
+“Receive a court-ready, IACP-certified diminished value appraisal backed by industry-standard valuation data, real-time market comparables, and state-specific case law. Built for attorneys and insurance adjusters. Faster, clearer, and more affordable.”
+
+CTAs:
+• “Free eligibility + estimated compensation”
+• “Generate my IACP-certified diminished value appraisal ($299)”
+
+Badge: “Specialized in Georgia, Florida, and North Carolina”
+
+WHY YOU NEED A PROFESSIONAL APPRAISAL
+
+Subtitle:
+“After an accident, shops repair the damage. No one fixes the lost value. That is diminished value, and that is what we recover so you are made whole.”
+
+FEATURE BLOCKS
+Block 1: Accurate valuations
+Text: “We use industry-standard valuation data, comparable retail listings, and real-time market insights to calculate the precise loss in value for your VIN. This ensures you receive maximum compensation for your vehicle’s diminished value.”
+
+Block 2: Professional reports
+Text: “Get a comprehensive, IACP-certified appraisal that cites the specific statutes and case law for your state. Your appraisal is court-ready and accepted by insurers.”
+
+Block 3: Demand letters
+Text: “Your package includes a strong demand letter tailored to your adjuster. Start your claim on solid legal and valuation footing.”
+
+END-TO-END SUPPORT SECTION
+Title: “We help you all the way to your diminished value check”
+
+Body:
+“Most appraisal companies hand you a report and disappear. We guide you end to end. When the insurer responds, upload their message. Our system drafts a clear response based on case law, valuation logic, and proven negotiation strategy.
+We help you interpret low offers, choose the right tone, and send strong counters until your diminished value check arrives.”
+
+STATS SECTION
+
+“$3,400 — Average diminished value recovery”
+
+“100% — Money-back guarantee”
+
+“3 states — Specialized in GA, FL, NC”
+
+WHAT IS DIMINISHED VALUE? (SEO SECTION)
+Text:
+“When your car has an accident, even after quality repairs, buyers will not pay the same price they would have before the crash. The difference in resale value is diminished value. Insurers are required to compensate you for this loss when you are not at fault. Our IACP-certified diminished value appraisal calculates your vehicle’s true loss in value and prepares everything you need to claim it.”
+
+HOW IT WORKS
+Step 1: Check eligibility
+Text: “Enter your vehicle and accident details to confirm you qualify.”
+
+Step 2: Generate your certified appraisal
+Text: “Instantly receive your full appraisal package, including a demand letter and state-specific legal references.”
+
+Step 3: Negotiate with confidence
+Text: “Upload insurer messages and get guided counter-responses until your diminished value check is paid.”
+
+FAQ SECTION (USE ACCORDIONS)
+FAQ 1
+Q: “What does IACP-certified mean?”
+A: “It means your appraisal is produced by an appraiser certified by the Bureau of Certified Auto Appraisers (IACP) and follows accepted industry and legal standards used by insurers and courts.”
+
+FAQ 2
+Q: “Do I need a diminished value appraisal in Georgia, Florida, or North Carolina?”
+A: “Yes. These states recognize diminished value claims in many not-at-fault accidents. A certified appraisal helps prove your loss with market data and law citations.”
+
+FAQ 3
+Q: “Will insurers accept this appraisal?”
+A: “Our reports are designed for insurer review and court use. They cite valuation sources, comps, and state-specific authority to substantiate the diminished value amount.”
+
+FAQ 4
+Q: “How much can I recover?”
+A: “Payouts vary by vehicle, damage, and market conditions. Use the free eligibility tool for an estimated range, then generate your certified appraisal to support your claim.”
+
+FAQ 5
+Q: “What if the adjuster lowballs me?”
+A: “Upload the offer. We generate a tailored counter with valuation logic and legal support so you can negotiate from a position of strength.”
+
+FAQ 6
+Q: “How fast is the process?”
+A: “Eligibility is instant. Your appraisal is generated the same day. Negotiation timelines depend on insurer response cycles.”
+
+FOOTER
+Brand name: PayMyValue
+Tagline: “IACP-certified diminished value and total loss appraisals for everyday drivers. Recover the full amount you are owed.”
+
+Footer links:
+Product: Diminished Value | Total Loss | Sample Reports
+Company: About Us | Contact | Terms of Service | Privacy Policy | Legal Disclaimer
+Disclaimer text:
+“PayMyValue is not a law firm and does not provide legal advice. Our reports are IACP-certified appraisals based on market data and accepted industry standards.”
+
+SEO REQUIREMENTS
+
+Title tag: “IACP-Certified Diminished Value Appraisal | PayMyValue”
+
+Meta description:
+“Get an IACP-certified, court-ready diminished value appraisal with comps and state law citations. Specialized in GA, FL, and NC.”
+
+Use “diminished value appraisal” throughout headings and body text.
+
+Add FAQPage schema in JSON-LD.
+
+Add Organization schema for PayMyValue.
