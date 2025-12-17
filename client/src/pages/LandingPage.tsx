@@ -37,7 +37,7 @@ export default function LandingPage() {
             </h1>
             
             <p className="text-lg md:text-xl text-slate-300 mb-8 leading-relaxed max-w-3xl mx-auto" data-testid="hero-subtitle">
-              When your car has been in an accident buyers will not pay the same price they would have before the damage, even after quality repairs. The difference in resale value is called Diminished Value. Insurers are required to compensate you for this loss when you are not at fault. Our IACP certified appraisal calculates your vehicle's true loss in value and delivers a court ready, insurer recognized appraisal instantly so you can claim the full amount you are owed.
+              When your car has been in an accident buyers will not pay the same price they would have before the damage, even after quality repairs. The difference in resale value is called Diminished Value. Insurers are required to compensate you for this loss when you are not at fault. Our IACP Certified Diminished Value Appraisal calculates your vehicle's true loss in value and delivers a court ready, insurer recognized appraisal instantly so you can claim the full amount you are owed.
             </p>
 
             {/* Statute of Limitations Block */}
