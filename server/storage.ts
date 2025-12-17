@@ -7,10 +7,13 @@ import {
   type InsertPrequalLead,
   type ChatMessage,
   type InsertChatMessage,
+  type WizardAppraisal,
+  type InsertWizardAppraisal,
   users,
   cases,
   prequalLeads,
   chatMessages,
+  wizardAppraisals,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, and, desc } from "drizzle-orm";
@@ -35,6 +38,11 @@ export interface IStorage {
   // Chat message methods
   getChatMessagesByCase(caseId: string): Promise<ChatMessage[]>;
   createChatMessage(message: InsertChatMessage): Promise<ChatMessage>;
+  
+  // Wizard appraisal methods
+  createWizardAppraisal(appraisal: InsertWizardAppraisal): Promise<WizardAppraisal>;
+  getWizardAppraisal(id: string): Promise<WizardAppraisal | undefined>;
+  updateWizardAppraisal(id: string, updates: Partial<InsertWizardAppraisal>): Promise<WizardAppraisal | undefined>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -100,6 +108,25 @@ export class DatabaseStorage implements IStorage {
   async createChatMessage(message: InsertChatMessage): Promise<ChatMessage> {
     const [newMessage] = await db.insert(chatMessages).values(message).returning();
     return newMessage;
+  }
+
+  // Wizard appraisal methods
+  async createWizardAppraisal(appraisal: InsertWizardAppraisal): Promise<WizardAppraisal> {
+    const [newAppraisal] = await db.insert(wizardAppraisals).values(appraisal).returning();
+    return newAppraisal;
+  }
+
+  async getWizardAppraisal(id: string): Promise<WizardAppraisal | undefined> {
+    const [appraisal] = await db.select().from(wizardAppraisals).where(eq(wizardAppraisals.id, id)).limit(1);
+    return appraisal;
+  }
+
+  async updateWizardAppraisal(id: string, updates: Partial<InsertWizardAppraisal>): Promise<WizardAppraisal | undefined> {
+    const [updated] = await db.update(wizardAppraisals)
+      .set(updates)
+      .where(eq(wizardAppraisals.id, id))
+      .returning();
+    return updated;
   }
 }
 

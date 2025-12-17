@@ -145,6 +145,53 @@ export const insertPrequalLeadSchema = createInsertSchema(prequalLeads).omit({
 export type InsertPrequalLead = z.infer<typeof insertPrequalLeadSchema>;
 export type PrequalLead = typeof prequalLeads.$inferSelect;
 
+// Wizard appraisals - from the appraisal wizard flow
+export const wizardAppraisals = pgTable("wizard_appraisals", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  email: text("email").notNull(),
+
+  year: text("year").notNull(),
+  make: text("make").notNull(),
+  model: text("model").notNull(),
+  trim: text("trim"),
+  mileage: text("mileage"),
+  vin: text("vin"),
+
+  accidentDate: text("accident_date").notNull(),
+  accidentState: text("accident_state").notNull(),
+  otherDriverAtFault: integer("other_driver_at_fault").notNull().default(1),
+
+  damageLocation: text("damage_location").notNull(),
+  repairStatus: text("repair_status").notNull(),
+
+  repairEstimateFileId: text("repair_estimate_file_id"),
+  repairEstimateUploaded: integer("repair_estimate_uploaded").default(0),
+
+  preAccidentValueBucket: text("pre_accident_value_bucket").notNull(),
+  guaranteeEligible: integer("guarantee_eligible").notNull().default(1),
+
+  referralSource: text("referral_source").notNull(),
+  referralName: text("referral_name"),
+  bodyShopName: text("body_shop_name"),
+  bodyShopLocation: text("body_shop_location"),
+
+  atFaultInsuranceCompany: text("at_fault_insurance_company").notNull(),
+  claimNumber: text("claim_number"),
+
+  stripeCheckoutSessionId: text("stripe_checkout_session_id"),
+  stripePaymentStatus: text("stripe_payment_status"),
+  
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const insertWizardAppraisalSchema = createInsertSchema(wizardAppraisals).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type InsertWizardAppraisal = z.infer<typeof insertWizardAppraisalSchema>;
+export type WizardAppraisal = typeof wizardAppraisals.$inferSelect;
+
 // Negotiation chat messages
 export const chatMessages = pgTable("chat_messages", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),

@@ -58,7 +58,7 @@ export default function LandingPage() {
                 <ArrowRight className="ml-2 h-5 w-5" />
               </Button>
               
-              <Link href="/dashboard">
+              <Link href="/appraisal/start">
                 <Button variant="outline" size="lg" className="text-white border-white/30 hover:bg-white/10 h-14 text-lg px-8 backdrop-blur-sm w-full sm:w-auto" data-testid="button-generate-appraisal">
                   Generate my IACP certified diminished value appraisal
                 </Button>

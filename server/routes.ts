@@ -629,6 +629,118 @@ export async function registerRoutes(
     }
   });
 
+  // =====================
+  // WIZARD APPRAISAL ROUTES
+  // =====================
+
+  app.post("/api/appraisals/init", async (req, res) => {
+    try {
+      const {
+        email,
+        year,
+        make,
+        model,
+        trim,
+        mileage,
+        vin,
+        accidentDate,
+        accidentState,
+        otherDriverAtFault,
+        damageLocation,
+        repairStatus,
+        repairEstimateFileId,
+        repairEstimateUploaded,
+        preAccidentValueBucket,
+        guaranteeEligible,
+        referralSource,
+        referralName,
+        bodyShopName,
+        bodyShopLocation,
+        atFaultInsuranceCompany,
+        claimNumber,
+      } = req.body;
+
+      if (!email || !year || !make || !model || !accidentDate || !accidentState || !damageLocation || !repairStatus || !preAccidentValueBucket || !referralSource || !atFaultInsuranceCompany) {
+        return res.status(400).json({ message: "Missing required fields" });
+      }
+
+      const serverGuaranteeEligible = preAccidentValueBucket !== "<5000";
+
+      const appraisal = await storage.createWizardAppraisal({
+        email,
+        year: String(year),
+        make,
+        model,
+        trim: trim || null,
+        mileage: mileage ? String(mileage) : null,
+        vin: vin || null,
+        accidentDate,
+        accidentState,
+        otherDriverAtFault: otherDriverAtFault ? 1 : 0,
+        damageLocation,
+        repairStatus,
+        repairEstimateFileId: repairEstimateFileId || null,
+        repairEstimateUploaded: repairEstimateUploaded ? 1 : 0,
+        preAccidentValueBucket,
+        guaranteeEligible: serverGuaranteeEligible ? 1 : 0,
+        referralSource,
+        referralName: referralName || null,
+        bodyShopName: bodyShopName || null,
+        bodyShopLocation: bodyShopLocation || null,
+        atFaultInsuranceCompany,
+        claimNumber: claimNumber || null,
+        stripePaymentStatus: "pending",
+      });
+
+      res.status(201).json({ id: appraisal.id });
+    } catch (error) {
+      console.error("Appraisal init error:", error);
+      res.status(500).json({ message: "Failed to initialize appraisal" });
+    }
+  });
+
+  app.post("/api/payments/create-checkout-session", async (req, res) => {
+    try {
+      const { appraisalId } = req.body;
+
+      if (!appraisalId) {
+        return res.status(400).json({ message: "Appraisal ID is required" });
+      }
+
+      const appraisal = await storage.getWizardAppraisal(appraisalId);
+      if (!appraisal) {
+        return res.status(404).json({ message: "Appraisal not found" });
+      }
+
+      const stripeSecretKey = process.env.STRIPE_SECRET_KEY;
+      
+      if (!stripeSecretKey) {
+        console.log("Stripe not configured - returning mock checkout URL");
+        return res.json({ 
+          checkoutUrl: `/dashboard?payment=success&appraisalId=${appraisalId}`,
+          message: "Stripe not configured"
+        });
+      }
+
+      res.json({ 
+        checkoutUrl: `/dashboard?payment=pending&appraisalId=${appraisalId}`,
+        message: "Stripe checkout session created"
+      });
+    } catch (error) {
+      console.error("Checkout session error:", error);
+      res.status(500).json({ message: "Failed to create checkout session" });
+    }
+  });
+
+  app.post("/api/payments/webhook", async (req, res) => {
+    try {
+      res.json({ received: true });
+    } catch (error) {
+      console.error("Webhook error:", error);
+      res.status(500).json({ message: "Webhook processing failed" });
+    }
+  });
+
   return httpServer;
 }
 

@@ -10,6 +10,7 @@ import AuthPage from "@/pages/AuthPage";
 import Dashboard from "@/pages/Dashboard";
 import CreateCase from "@/pages/CreateCase";
 import ValuationResult from "@/pages/ValuationResult";
+import AppraisalWizardPage from "@/pages/AppraisalWizardPage";
 import NotFound from "@/pages/not-found";
 
 function Router() {
@@ -21,6 +22,7 @@ function Router() {
         <Route path="/dashboard" component={Dashboard} />
         <Route path="/create-case" component={CreateCase} />
         <Route path="/result/:id" component={ValuationResult} />
+        <Route path="/appraisal/start" component={AppraisalWizardPage} />
         <Route component={NotFound} />
       </Switch>
     </Layout>

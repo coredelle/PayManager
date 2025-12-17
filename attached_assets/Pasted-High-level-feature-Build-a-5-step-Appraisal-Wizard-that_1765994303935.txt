@@ -1,0 +1,592 @@
+High-level feature
+
+Build a 5-step “Appraisal Wizard” that the user reaches after clicking
+“Generate my IACP certified diminished value appraisal” on the home page.
+
+Route: GET /appraisal/start (frontend route, e.g. /appraisal/start in React Router).
+
+Stack:
+
+React 19 + Vite + TS
+
+Tailwind CSS + shadcn/ui
+
+Express backend (Node + TS)
+
+PostgreSQL + Drizzle ORM
+
+Stripe (or Replit’s native payments, but model as Stripe) for checkout
+
+Frontend: Route + Component Structure
+
+Create a React route:
+
+src/routes/AppraisalWizardPage.tsx
+
+This page renders a multi-step wizard with:
+
+Step 1: Email
+
+Step 2: Vehicle Details
+
+Step 3: Accident / Damage / Value / Referral / Insurance
+
+Step 4: Appraisal Preview
+
+Step 5: Payment (or redirect to a dedicated Payment page)
+
+Recommended component tree:
+
+AppraisalWizardPage
+  ├─ WizardHeader (step indicator, title, subtitle)
+  ├─ WizardProgressBar
+  ├─ WizardStepContainer
+  │    ├─ StepEmail
+  │    ├─ StepVehicle
+  │    ├─ StepAccident
+  │    ├─ StepPreview
+  │    └─ StepPayment (or PaymentPage as a separate route)
+  └─ WizardFooter (Back / Continue buttons)
+
+
+Use useState or a small state machine (or useReducer) to manage steps.
+
+Types & Form Model (TS)
+
+Create shared types in src/types/appraisal.ts:
+
+export type PreAccidentValueBucket =
+  | "<5000"
+  | "5000-10000"
+  | "10000-20000"
+  | "20000-30000"
+  | "30000-40000"
+  | "40000-50000"
+  | "50000-75000"
+  | ">75000";
+
+export type DamageLocation =
+  | "front"
+  | "rear"
+  | "driver_side"
+  | "passenger_side"
+  | "multiple"
+  | "not_sure";
+
+export type RepairStatus =
+  | "completed"
+  | "authorized_not_completed"
+  | "not_authorized";
+
+export type ReferralSource =
+  | "body_shop"
+  | "friend_family"
+  | "insurance_adjuster"
+  | "someone_else"
+  | "no_referral";
+
+export interface AppraisalFormData {
+  email: string;
+
+  // Step 2 - vehicle
+  year: number | "";
+  make: string;
+  model: string;
+  trim?: string;
+  mileage?: number | "";
+
+  vin?: string;
+
+  // Step 3 - accident
+  accidentDate: string; // ISO date
+  accidentState: string;
+  otherDriverAtFault: boolean;
+
+  damageLocation: DamageLocation;
+  repairStatus: RepairStatus;
+
+  // file upload handled separately, store URL or temp id
+  repairEstimateFileId?: string;
+  repairEstimateUploaded: boolean;
+
+  preAccidentValueBucket: PreAccidentValueBucket;
+
+  referralSource: ReferralSource;
+  referralName?: string; // if someone_else
+
+  bodyShopName?: string;
+  bodyShopLocation?: string;
+
+  atFaultInsuranceCompany: string;
+  claimNumber?: string;
+
+  // eligibility flags computed on frontend or backend
+  guaranteeEligible: boolean;
+}
+
+Step Details & Copy
+Step 1 – Email
+
+Component: StepEmail.tsx
+
+Fields:
+
+email (required)
+
+Validation:
+
+Must be a valid email format.
+
+Copy:
+
+Headline: “Save Your Progress”
+
+Microcopy:
+“We never share your information. Saving your progress allows you to return anytime.”
+
+Buttons:
+
+Primary: “Continue”
+
+Step 2 – Vehicle Details
+
+Component: StepVehicle.tsx
+
+Fields:
+
+year (number, required)
+
+make (string, required)
+
+model (string, required)
+
+trim (string, optional)
+
+mileage (number, optional)
+
+vin (string, optional)
+
+Validation:
+
+Year must be reasonable (e.g. 1980–current year+1).
+
+Make/model not empty.
+
+Buttons:
+
+Back
+
+Continue
+
+Step 3 – Accident, Damage, Value, Referral, Insurance
+
+Component: StepAccident.tsx
+
+Fields:
+
+accidentDate (date, required)
+
+accidentState (string, required; use a dropdown of states)
+
+otherDriverAtFault (boolean, required)
+
+Damage:
+
+damageLocation (required; options):
+
+front
+
+rear
+
+driver_side
+
+passenger_side
+
+multiple
+
+not_sure
+
+Repair:
+
+repairStatus (required; radio):
+
+completed
+
+authorized_not_completed
+
+not_authorized
+
+Microcopy under repairStatus:
+
+“Insurers typically process diminished value after repairs are authorized or completed, but you can continue now.”
+
+Repair estimate upload:
+
+File input for a PDF or image.
+
+Not required to proceed.
+
+Microcopy:
+
+“Your final certified appraisal cannot be generated without a repair estimate. You can upload it now or add it later once your body shop provides it.”
+
+Value question:
+
+preAccidentValueBucket (required)
+
+Label:
+
+“What do you estimate as the value of your vehicle before the accident?”
+
+Options:
+
+Less than 5,000
+
+5,000 to 10,000
+
+10,000 to 20,000
+
+20,000 to 30,000
+
+30,000 to 40,000
+
+40,000 to 50,000
+
+50,000 to 75,000
+
+Greater than 75,000
+
+Map them to the enum values.
+
+Eligibility copy (front-end only) when <5000 selected:
+
+Show a non-blocking info box:
+
+“Based on the estimated pre-accident value of your vehicle, your diminished value amount may be lower than what we typically guarantee. You can still continue and receive your certified diminished value appraisal and demand letter, but the 3X money back guarantee does not apply for this vehicle.”
+
+Referral (required):
+
+referralSource (required):
+
+My body shop → "body_shop"
+
+A friend or family member → "friend_family"
+
+My insurance adjuster → "insurance_adjuster"
+
+Someone else → "someone_else"
+
+No referral → "no_referral"
+
+If referralSource === "someone_else" show referralName text input (optional).
+
+Body shop:
+
+bodyShopName (optional but suggested if referralSource is body_shop).
+
+bodyShopLocation (optional).
+
+Insurance:
+
+atFaultInsuranceCompany (required).
+
+claimNumber (optional).
+
+Buttons:
+
+Back
+
+Continue
+
+Guarantee Eligibility Logic (Front-end)
+
+Add a helper in src/utils/eligibility.ts:
+
+import { PreAccidentValueBucket } from "@/types/appraisal";
+
+export function isGuaranteeEligible(bucket: PreAccidentValueBucket): boolean {
+  if (bucket === "<5000") return false;
+  // For now, everything ≥ 5,000 is eligible.
+  // Later you can add finer logic based on damage or other factors.
+  return true;
+}
+
+
+Whenever preAccidentValueBucket changes, compute guaranteeEligible in state.
+
+Step 4 – Appraisal Preview
+
+Component: StepPreview.tsx
+
+Purpose: Show that a personalized appraisal package is ready and tee up the payment page.
+
+Display:
+
+Headline: “Your Certified Diminished Value Appraisal Is Ready”
+
+Subtext: “We have prepared your personalized certified appraisal and demand letter based on the information you provided.”
+
+Preview UI:
+
+Use a shadcn Card containing:
+
+Blurred “First page of appraisal” mock (static image asset).
+
+Blurred “First page of demand letter” mock.
+
+Bullet list:
+
+“Value impact summary: calculated”
+
+“Market comps included”
+
+“State specific citations included”
+
+“Negotiation support included”
+
+Primary CTA:
+
+Button text:
+“Download My Certified Diminished Value Appraisal and Demand Letter”
+
+Clicking this:
+
+Does NOT download yet.
+
+Moves to Step 5 (payment page) or navigates to /appraisal/checkout.
+
+Step 5 – Payment Page (can be same page in the wizard)
+
+Component: StepPayment.tsx or a separate PaymentPage.tsx route.
+
+Copy:
+
+Headline: “Get Instant Access to Your Certified Appraisal Package”
+
+Subheadline:
+“Your certified diminished value appraisal and demand letter are ready. You will also receive complete negotiation support to help you secure the highest possible payout.”
+
+Value stack (design as a shadcn Card):
+
+“Certified diminished value appraisal report
+Value: 499 dollars”
+
+“Custom demand letter tailored to your adjuster
+Value: 99 dollars”
+
+“Negotiation support from a trained diminished value agent
+Value: 99 dollars”
+
+“Instant delivery and full support until you receive your diminished value check
+Value: priceless”
+
+Total line:
+
+“Total value: 699 dollars”
+
+“Your price today: 299 dollars”
+
+“Limited time offer”
+
+Guarantee Block (another Card):
+
+Title: “You are fully protected”
+
+Bullet list:
+
+100 percent money back guarantee
+
+Support until your diminished value check arrives
+
+If your payout is not at least three times what you pay us, you get a full refund
+
+Tooltip/hover (for a small “Details” link or ℹ icon):
+
+“To qualify for a refund, simply submit insurer responses and allow us to support you throughout the negotiation. If your final payout after a complete negotiation cycle is not at least three times the cost of our service, we will refund you 100 percent.”
+
+Trust badge row (flex row with icons/text):
+
+IACP Certified
+
+Market Data Verified
+
+Court Ready
+
+Secure Payment via Stripe
+
+Instant Digital Delivery
+
+Payment CTA button:
+
+“Get My Certified Appraisal and Demand Letter”
+
+On click:
+
+Call backend POST /api/payments/create-checkout-session with the AppraisalFormData.
+
+Redirect to Stripe Checkout URL.
+
+Backend: Express API & Drizzle Models
+1) Database schema (Drizzle)
+
+Create a migration and drizzle models for:
+
+users (if you do auth later) and appraisals.
+
+Minimal appraisals table:
+
+// drizzle/appraisals.ts
+import { pgTable, serial, text, timestamp, boolean } from "drizzle-orm/pg-core";
+
+export const appraisals = pgTable("appraisals", {
+  id: serial("id").primaryKey(),
+  email: text("email").notNull(),
+
+  year: text("year").notNull(),
+  make: text("make").notNull(),
+  model: text("model").notNull(),
+  trim: text("trim"),
+  mileage: text("mileage"),
+  vin: text("vin"),
+
+  accidentDate: text("accident_date").notNull(),
+  accidentState: text("accident_state").notNull(),
+  otherDriverAtFault: boolean("other_driver_at_fault").notNull(),
+
+  damageLocation: text("damage_location").notNull(),
+  repairStatus: text("repair_status").notNull(),
+
+  repairEstimateFileId: text("repair_estimate_file_id"),
+  repairEstimateUploaded: boolean("repair_estimate_uploaded").default(false),
+
+  preAccidentValueBucket: text("pre_accident_value_bucket").notNull(),
+  guaranteeEligible: boolean("guarantee_eligible").notNull(),
+
+  referralSource: text("referral_source").notNull(),
+  referralName: text("referral_name"),
+  bodyShopName: text("body_shop_name"),
+  bodyShopLocation: text("body_shop_location"),
+
+  atFaultInsuranceCompany: text("at_fault_insurance_company").notNull(),
+  claimNumber: text("claim_number"),
+
+  stripeCheckoutSessionId: text("stripe_checkout_session_id"),
+  stripePaymentStatus: text("stripe_payment_status"), // e.g. "pending", "paid"
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+2) API endpoints
+
+Base path: /api/appraisals
+
+a) POST /api/appraisals/init
+
+Body: AppraisalFormData (minus payment info).
+
+Responsibility:
+
+Validate payload.
+
+Compute guaranteeEligible using the same logic as frontend (or trust frontend and re-check).
+
+Persist to appraisals with status pending.
+
+Return an appraisalId.
+
+b) POST /api/payments/create-checkout-session
+
+Body: { appraisalId: number }.
+
+Lookup appraisal record.
+
+Use Stripe (or Replit's payments) to create a checkout session for $299.
+
+Attach appraisalId in metadata.
+
+Return { checkoutUrl }.
+
+c) POST /api/payments/webhook (Stripe webhook)
+
+Update appraisals.stripePaymentStatus to paid when successful.
+
+After payment success, you will later attach logic to generate the actual PDF appraisal & demand letter.
+
+Stripe / Payments Integration
+
+You do NOT need to fully implement now, but Replit should:
+
+Add a stripe.ts helper for creating checkout sessions.
+
+Store STRIPE_SECRET_KEY, STRIPE_PRICE_ID in env variables.
+
+In StepPayment, on click:
+
+const handleCheckout = async () => {
+  const res = await fetch("/api/payments/create-checkout-session", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ appraisalId }),
+  });
+  const data = await res.json();
+  window.location.href = data.checkoutUrl;
+};
+
+Styling: Tailwind + shadcn/ui
+
+Use shadcn components for:
+
+Card (value stack, guarantee, preview)
+
+Button (CTAs)
+
+Input (email, text fields)
+
+Select (value buckets, states, etc.)
+
+Tooltip or HoverCard for guarantee details.
+
+Tailwind for layout:
+
+Wizard page as a centered column with max width (e.g. max-w-3xl mx-auto).
+
+Sticky header with small badges.
+
+Progress bar as a simple horizontally filled bar with step labels.
+
+What to Tell Replit (TL;DR Prompt)
+
+If you want a very concise “system prompt” to paste into Replit, use this section:
+
+Build a multi-step “AppraisalWizardPage” in a React 19 + Vite + TypeScript app with Tailwind + shadcn/ui. The backend is Express + Node + TypeScript with PostgreSQL via Drizzle ORM and Stripe for payments.
+
+The wizard route is /appraisal/start and has 4 visible steps:
+
+Email capture
+
+Vehicle details
+
+Accident, damage, pre-accident value, referral, and insurance info
+
+Appraisal preview, followed by a payment page that shows a value stack, guarantee, and triggers Stripe checkout.
+
+Use the AppraisalFormData and enums defined in src/types/appraisal.ts (as described) to model the form. Implement helper isGuaranteeEligible(preAccidentValueBucket) that returns false only when bucket is <5000, otherwise true. Show a non-blocking info message when <5000 is selected stating that the 3X guarantee does not apply but they may continue.
+
+Step details, copy, and buttons should match the spec above, including:
+
+Email step: “Save Your Progress”, email field, “Continue” button.
+
+Vehicle step: year, make, model, trim, mileage, vin.
+
+Accident step: accident date, state, not-at-fault boolean, damage location, repair status, optional repair estimate upload with microcopy “Your final certified appraisal cannot be generated without a repair estimate. You can upload it now or add it later once your body shop provides it.”; pre-accident value bucket multiple choice; referral source (with conditional name); body shop name/location; at-fault insurance company; optional claim number.
+
+Preview step: Headline “Your Certified Diminished Value Appraisal Is Ready,” blurred preview cards, CTA button “Download My Certified Diminished Value Appraisal and Demand Letter” that advances to the payment view.
+
+Payment view: headline “Get Instant Access to Your Certified Appraisal Package,” value stack (499 + 99 + 99, total 699, price 299, “Limited time offer”), guarantee block with 3X money-back guarantee and hover tooltip (use shadcn Tooltip or HoverCard), trust badge row, and final payment button labeled “Get My Certified Appraisal and Demand Letter.”
+
+On the backend, create an appraisals table in Drizzle ORM (schema as specified) and endpoints:
+
+POST /api/appraisals/init to save the form data and guarantee eligibility.
+
+POST /api/payments/create-checkout-session to create a Stripe Checkout session for the appraisal, returning a checkoutUrl for redirection.
+
+Use Tailwind + shadcn/ui for layout and styling, keeping the tone professional and non-salesy.
