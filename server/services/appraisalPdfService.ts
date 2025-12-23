@@ -138,7 +138,10 @@ function drawSectionHeader(page: PDFPage, fonts: FontSet, title: string, y: numb
 }
 
 function drawLabelValue(page: PDFPage, fonts: FontSet, label: string, value: string, x: number, y: number, labelWidth = 140): number {
-  page.drawText(label + ":", {
+  const cleanLabel = (label || "").replace(/[\r\n]+/g, " ").trim();
+  const cleanValue = (value || "N/A").replace(/[\r\n]+/g, " ").trim();
+  
+  page.drawText(cleanLabel + ":", {
     x,
     y,
     size: 10,
@@ -146,7 +149,7 @@ function drawLabelValue(page: PDFPage, fonts: FontSet, label: string, value: str
     color: rgb(0.4, 0.4, 0.4),
   });
   
-  page.drawText(value || "N/A", {
+  page.drawText(cleanValue, {
     x: x + labelWidth,
     y,
     size: 10,
@@ -157,12 +160,21 @@ function drawLabelValue(page: PDFPage, fonts: FontSet, label: string, value: str
   return y - 16;
 }
 
+function sanitizeText(text: string): string {
+  return text
+    .replace(/[\r\n]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
 function wrapText(text: string, font: PDFFont, fontSize: number, maxWidth: number): string[] {
-  const words = text.split(" ");
+  const cleanText = sanitizeText(text);
+  const words = cleanText.split(" ");
   const lines: string[] = [];
   let currentLine = "";
   
   for (const word of words) {
+    if (!word) continue;
     const testLine = currentLine ? `${currentLine} ${word}` : word;
     const width = font.widthOfTextAtSize(testLine, fontSize);
     
