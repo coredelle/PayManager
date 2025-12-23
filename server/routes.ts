@@ -11,6 +11,9 @@ import { computeDVAmount, quickEstimate, type AppraisalInput } from "./services/
 import { getStateLaw } from "./services/stateLaw";
 import { generateAppraisalNarrative, generateDemandLetter, generateNegotiationResponse } from "./services/aiNarratives";
 import { sendPasswordResetEmail } from "./services/email";
+import { runFullAppraisalCalculation } from "./services/appraisalValuationService";
+import { generateAppraisalPdf } from "./services/appraisalPdfService";
+import type { AppraisalInput as GeorgiaAppraisalInput, DamageCode } from "@shared/types/appraisal";
 
 declare module "express-session" {
   interface SessionData {
@@ -823,6 +826,228 @@ export async function registerRoutes(
     } catch (error) {
       console.error("Webhook error:", error);
       res.status(500).json({ message: "Webhook processing failed" });
+    }
+  });
+
+  // =====================
+  // GEORGIA APPRAISAL ROUTES
+  // =====================
+
+  app.post("/api/georgia-appraisals", async (req, res) => {
+    try {
+      const data = req.body;
+
+      if (!data.ownerName || !data.ownerEmail || !data.year || !data.make || !data.model || !data.vin || !data.insuranceCompany || !data.claimNumber || !data.dateOfLoss) {
+        return res.status(400).json({ message: "Missing required fields" });
+      }
+
+      const appraisal = await storage.createGeorgiaAppraisal({
+        userId: req.session.userId || null,
+        ownerName: data.ownerName,
+        ownerAddress: data.ownerAddress || "",
+        ownerPhone: data.ownerPhone || "",
+        ownerEmail: data.ownerEmail,
+        year: parseInt(data.year),
+        make: data.make,
+        model: data.model,
+        trim: data.trim || "",
+        vin: data.vin,
+        licensePlate: data.licensePlate || null,
+        stateOfRegistration: data.stateOfRegistration || "GA",
+        mileage: parseInt(data.mileage) || 0,
+        accidentHistory: data.accidentHistory || "unknown",
+        isLeased: data.isLeased ? 1 : 0,
+        insuranceCompany: data.insuranceCompany,
+        claimNumber: data.claimNumber,
+        adjusterName: data.adjusterName || null,
+        adjusterEmail: data.adjusterEmail || null,
+        adjusterPhone: data.adjusterPhone || null,
+        dateOfLoss: data.dateOfLoss,
+        repairCenterName: data.repairCenterName || null,
+        repairCenterPhone: data.repairCenterPhone || null,
+        repairCenterAddress: data.repairCenterAddress || null,
+        repairDropOffDate: data.repairDropOffDate || null,
+        repairPickupDate: data.repairPickupDate || null,
+        totalRepairCost: data.totalRepairCost?.toString() || null,
+        damageDescription: data.damageDescription || null,
+        keyImpactAreas: data.keyImpactAreas ? JSON.stringify(data.keyImpactAreas) : null,
+        stripePaymentStatus: "pending",
+      });
+
+      res.status(201).json({ id: appraisal.id, appraisal });
+    } catch (error) {
+      console.error("Georgia appraisal create error:", error);
+      res.status(500).json({ message: "Failed to create appraisal" });
+    }
+  });
+
+  app.get("/api/georgia-appraisals/:id", async (req, res) => {
+    try {
+      const appraisal = await storage.getGeorgiaAppraisal(req.params.id);
+      if (!appraisal) {
+        return res.status(404).json({ message: "Appraisal not found" });
+      }
+      res.json(appraisal);
+    } catch (error) {
+      console.error("Get Georgia appraisal error:", error);
+      res.status(500).json({ message: "Failed to fetch appraisal" });
+    }
+  });
+
+  app.post("/api/georgia-appraisals/:id/calculate", async (req, res) => {
+    try {
+      const appraisal = await storage.getGeorgiaAppraisal(req.params.id);
+      if (!appraisal) {
+        return res.status(404).json({ message: "Appraisal not found" });
+      }
+
+      const keyImpactAreas: DamageCode[] = appraisal.keyImpactAreas 
+        ? JSON.parse(appraisal.keyImpactAreas) 
+        : [];
+
+      const input: GeorgiaAppraisalInput = {
+        id: appraisal.id,
+        ownerName: appraisal.ownerName,
+        ownerAddress: appraisal.ownerAddress,
+        ownerPhone: appraisal.ownerPhone,
+        ownerEmail: appraisal.ownerEmail,
+        year: appraisal.year,
+        make: appraisal.make,
+        model: appraisal.model,
+        trim: appraisal.trim,
+        vin: appraisal.vin,
+        licensePlate: appraisal.licensePlate || undefined,
+        stateOfRegistration: appraisal.stateOfRegistration,
+        mileage: appraisal.mileage,
+        accidentHistory: appraisal.accidentHistory as "clean" | "prior_damage" | "unknown",
+        isLeased: appraisal.isLeased === 1,
+        insuranceCompany: appraisal.insuranceCompany,
+        claimNumber: appraisal.claimNumber,
+        adjusterName: appraisal.adjusterName || undefined,
+        adjusterEmail: appraisal.adjusterEmail || undefined,
+        adjusterPhone: appraisal.adjusterPhone || undefined,
+        dateOfLoss: appraisal.dateOfLoss,
+        repairCenterName: appraisal.repairCenterName || undefined,
+        repairCenterPhone: appraisal.repairCenterPhone || undefined,
+        repairCenterAddress: appraisal.repairCenterAddress || undefined,
+        repairDropOffDate: appraisal.repairDropOffDate || undefined,
+        repairPickupDate: appraisal.repairPickupDate || undefined,
+        totalRepairCost: appraisal.totalRepairCost ? parseFloat(appraisal.totalRepairCost) : undefined,
+        damageDescription: appraisal.damageDescription || undefined,
+        keyImpactAreas,
+        stateOfLoss: "GA",
+      };
+
+      const result = await runFullAppraisalCalculation(input);
+
+      const updated = await storage.updateGeorgiaAppraisal(req.params.id, {
+        cleanRetailPreAccident: result.thirdParty.cleanRetailPreAccident.toString(),
+        roughRetailPostAccident: result.thirdParty.roughRetailPostAccident.toString(),
+        comparablesAvgRetail: result.comparablesAvgRetail.toString(),
+        finalPreAccidentValue: result.finalPreAccidentValue.toString(),
+        postAccidentValue: result.postAccidentValue.toString(),
+        diminishedValue: result.diminishedValue.toString(),
+        comparablesJson: JSON.stringify(result.comparables),
+        mileageBandDescription: result.mileageBandDescription,
+        comparableFilterNotes: result.comparableFilterNotes,
+        calculatedAt: new Date(),
+      });
+
+      res.json({ appraisal: updated, result });
+    } catch (error) {
+      console.error("Georgia appraisal calculate error:", error);
+      res.status(500).json({ message: "Failed to calculate appraisal" });
+    }
+  });
+
+  app.get("/api/georgia-appraisals/:id/report.pdf", async (req, res) => {
+    try {
+      const appraisal = await storage.getGeorgiaAppraisal(req.params.id);
+      if (!appraisal) {
+        return res.status(404).json({ message: "Appraisal not found" });
+      }
+
+      if (!appraisal.calculatedAt) {
+        return res.status(400).json({ message: "Appraisal must be calculated before generating PDF" });
+      }
+
+      const keyImpactAreas: DamageCode[] = appraisal.keyImpactAreas 
+        ? JSON.parse(appraisal.keyImpactAreas) 
+        : [];
+
+      const input: GeorgiaAppraisalInput = {
+        id: appraisal.id,
+        ownerName: appraisal.ownerName,
+        ownerAddress: appraisal.ownerAddress,
+        ownerPhone: appraisal.ownerPhone,
+        ownerEmail: appraisal.ownerEmail,
+        year: appraisal.year,
+        make: appraisal.make,
+        model: appraisal.model,
+        trim: appraisal.trim,
+        vin: appraisal.vin,
+        licensePlate: appraisal.licensePlate || undefined,
+        stateOfRegistration: appraisal.stateOfRegistration,
+        mileage: appraisal.mileage,
+        accidentHistory: appraisal.accidentHistory as "clean" | "prior_damage" | "unknown",
+        isLeased: appraisal.isLeased === 1,
+        insuranceCompany: appraisal.insuranceCompany,
+        claimNumber: appraisal.claimNumber,
+        adjusterName: appraisal.adjusterName || undefined,
+        adjusterEmail: appraisal.adjusterEmail || undefined,
+        adjusterPhone: appraisal.adjusterPhone || undefined,
+        dateOfLoss: appraisal.dateOfLoss,
+        repairCenterName: appraisal.repairCenterName || undefined,
+        repairCenterPhone: appraisal.repairCenterPhone || undefined,
+        repairCenterAddress: appraisal.repairCenterAddress || undefined,
+        repairDropOffDate: appraisal.repairDropOffDate || undefined,
+        repairPickupDate: appraisal.repairPickupDate || undefined,
+        totalRepairCost: appraisal.totalRepairCost ? parseFloat(appraisal.totalRepairCost) : undefined,
+        damageDescription: appraisal.damageDescription || undefined,
+        keyImpactAreas,
+        stateOfLoss: "GA",
+      };
+
+      const comparables = appraisal.comparablesJson 
+        ? JSON.parse(appraisal.comparablesJson) 
+        : [];
+
+      const result = {
+        appraisalId: appraisal.id,
+        thirdParty: {
+          cleanRetailPreAccident: parseFloat(appraisal.cleanRetailPreAccident || "0"),
+          roughRetailPostAccident: parseFloat(appraisal.roughRetailPostAccident || "0"),
+          source: "MarketCheck API",
+          retrievedAt: appraisal.calculatedAt!,
+        },
+        comparables,
+        comparablesAvgRetail: parseFloat(appraisal.comparablesAvgRetail || "0"),
+        finalPreAccidentValue: parseFloat(appraisal.finalPreAccidentValue || "0"),
+        postAccidentValue: parseFloat(appraisal.postAccidentValue || "0"),
+        diminishedValue: parseFloat(appraisal.diminishedValue || "0"),
+        mileageBandDescription: appraisal.mileageBandDescription || "",
+        comparableFilterNotes: appraisal.comparableFilterNotes || "",
+        createdAt: appraisal.calculatedAt!,
+      };
+
+      const pdfBuffer = await generateAppraisalPdf({
+        appraisal: input,
+        result,
+      });
+
+      await storage.updateGeorgiaAppraisal(req.params.id, {
+        pdfGeneratedAt: new Date(),
+      });
+
+      res.setHeader("Content-Type", "application/pdf");
+      res.setHeader(
+        "Content-Disposition",
+        `attachment; filename="Georgia_DV_Appraisal_${appraisal.vin}_${new Date().toISOString().split("T")[0]}.pdf"`
+      );
+      res.send(pdfBuffer);
+    } catch (error) {
+      console.error("Georgia appraisal PDF error:", error);
+      res.status(500).json({ message: "Failed to generate PDF" });
     }
   });
 

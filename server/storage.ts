@@ -11,12 +11,15 @@ import {
   type InsertWizardAppraisal,
   type PasswordResetToken,
   type InsertPasswordResetToken,
+  type GeorgiaAppraisal,
+  type InsertGeorgiaAppraisal,
   users,
   cases,
   prequalLeads,
   chatMessages,
   wizardAppraisals,
   passwordResetTokens,
+  georgiaAppraisals,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, and, desc } from "drizzle-orm";
@@ -52,6 +55,12 @@ export interface IStorage {
   getPasswordResetToken(token: string): Promise<PasswordResetToken | undefined>;
   markPasswordResetTokenUsed(token: string): Promise<void>;
   updateUserPassword(userId: string, hashedPassword: string): Promise<void>;
+
+  // Georgia appraisal methods
+  createGeorgiaAppraisal(appraisal: InsertGeorgiaAppraisal): Promise<GeorgiaAppraisal>;
+  getGeorgiaAppraisal(id: string): Promise<GeorgiaAppraisal | undefined>;
+  updateGeorgiaAppraisal(id: string, updates: Partial<InsertGeorgiaAppraisal> & { calculatedAt?: Date; pdfGeneratedAt?: Date }): Promise<GeorgiaAppraisal | undefined>;
+  getGeorgiaAppraisalsByUser(userId: string): Promise<GeorgiaAppraisal[]>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -161,6 +170,31 @@ export class DatabaseStorage implements IStorage {
     await db.update(users)
       .set({ password: hashedPassword })
       .where(eq(users.id, userId));
+  }
+
+  // Georgia appraisal methods
+  async createGeorgiaAppraisal(appraisal: InsertGeorgiaAppraisal): Promise<GeorgiaAppraisal> {
+    const [newAppraisal] = await db.insert(georgiaAppraisals).values(appraisal).returning();
+    return newAppraisal;
+  }
+
+  async getGeorgiaAppraisal(id: string): Promise<GeorgiaAppraisal | undefined> {
+    const [appraisal] = await db.select().from(georgiaAppraisals).where(eq(georgiaAppraisals.id, id)).limit(1);
+    return appraisal;
+  }
+
+  async updateGeorgiaAppraisal(id: string, updates: Partial<InsertGeorgiaAppraisal> & { calculatedAt?: Date; pdfGeneratedAt?: Date }): Promise<GeorgiaAppraisal | undefined> {
+    const [updated] = await db.update(georgiaAppraisals)
+      .set({ ...updates, updatedAt: new Date() })
+      .where(eq(georgiaAppraisals.id, id))
+      .returning();
+    return updated;
+  }
+
+  async getGeorgiaAppraisalsByUser(userId: string): Promise<GeorgiaAppraisal[]> {
+    return db.select().from(georgiaAppraisals)
+      .where(eq(georgiaAppraisals.userId, userId))
+      .orderBy(desc(georgiaAppraisals.updatedAt));
   }
 }
 

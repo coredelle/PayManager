@@ -226,3 +226,75 @@ export const insertChatMessageSchema = createInsertSchema(chatMessages).omit({
 
 export type InsertChatMessage = z.infer<typeof insertChatMessageSchema>;
 export type ChatMessage = typeof chatMessages.$inferSelect;
+
+// Georgia appraisals - new professional appraisal system
+export const accidentHistoryEnum = pgEnum("accident_history", ["clean", "prior_damage", "unknown"]);
+
+export const georgiaAppraisals = pgTable("georgia_appraisals", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").references(() => users.id, { onDelete: "set null" }),
+
+  ownerName: text("owner_name").notNull(),
+  ownerAddress: text("owner_address").notNull(),
+  ownerPhone: text("owner_phone").notNull(),
+  ownerEmail: text("owner_email").notNull(),
+
+  year: integer("year").notNull(),
+  make: text("make").notNull(),
+  model: text("model").notNull(),
+  trim: text("trim").notNull(),
+  vin: text("vin").notNull(),
+  licensePlate: text("license_plate"),
+  stateOfRegistration: text("state_of_registration").notNull(),
+  mileage: integer("mileage").notNull(),
+  accidentHistory: accidentHistoryEnum("accident_history").notNull().default("unknown"),
+  isLeased: integer("is_leased").notNull().default(0),
+
+  insuranceCompany: text("insurance_company").notNull(),
+  claimNumber: text("claim_number").notNull(),
+  adjusterName: text("adjuster_name"),
+  adjusterEmail: text("adjuster_email"),
+  adjusterPhone: text("adjuster_phone"),
+  dateOfLoss: text("date_of_loss").notNull(),
+
+  repairCenterName: text("repair_center_name"),
+  repairCenterPhone: text("repair_center_phone"),
+  repairCenterAddress: text("repair_center_address"),
+  repairDropOffDate: text("repair_drop_off_date"),
+  repairPickupDate: text("repair_pickup_date"),
+  totalRepairCost: decimal("total_repair_cost", { precision: 10, scale: 2 }),
+
+  damageDescription: text("damage_description"),
+  keyImpactAreas: text("key_impact_areas"),
+
+  cleanRetailPreAccident: decimal("clean_retail_pre_accident", { precision: 10, scale: 2 }),
+  roughRetailPostAccident: decimal("rough_retail_post_accident", { precision: 10, scale: 2 }),
+  comparablesAvgRetail: decimal("comparables_avg_retail", { precision: 10, scale: 2 }),
+  finalPreAccidentValue: decimal("final_pre_accident_value", { precision: 10, scale: 2 }),
+  postAccidentValue: decimal("post_accident_value", { precision: 10, scale: 2 }),
+  diminishedValue: decimal("diminished_value", { precision: 10, scale: 2 }),
+
+  comparablesJson: text("comparables_json"),
+  mileageBandDescription: text("mileage_band_description"),
+  comparableFilterNotes: text("comparable_filter_notes"),
+
+  calculatedAt: timestamp("calculated_at"),
+  pdfGeneratedAt: timestamp("pdf_generated_at"),
+
+  stripeCheckoutSessionId: text("stripe_checkout_session_id"),
+  stripePaymentStatus: text("stripe_payment_status"),
+
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export const insertGeorgiaAppraisalSchema = createInsertSchema(georgiaAppraisals).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+  calculatedAt: true,
+  pdfGeneratedAt: true,
+});
+
+export type InsertGeorgiaAppraisal = z.infer<typeof insertGeorgiaAppraisalSchema>;
+export type GeorgiaAppraisal = typeof georgiaAppraisals.$inferSelect;
