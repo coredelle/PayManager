@@ -7,7 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import { Check, ChevronRight, ChevronLeft, Car, FileText, Wrench, DollarSign } from "lucide-react";
+import { Check, ChevronRight, ChevronLeft, Car, FileText, Wrench, DollarSign, Loader2, RefreshCw } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { api } from "@/lib/api";
 import { useToast } from "@/hooks/use-toast";
@@ -43,11 +43,17 @@ export default function CreateCase() {
     totalRepairCost: "",
     bodyShopName: "",
     keyImpactAreas: "",
-    preAccidentValue: "",
-    postAccidentValue: "",
   });
   
   const [caseId, setCaseId] = useState<string | null>(null);
+  const [valuationData, setValuationData] = useState<{
+    preAccidentValue: number | null;
+    postAccidentValue: number | null;
+    source: string;
+    compsCount: number;
+    searchNotes: string;
+  } | null>(null);
+  const [valuationError, setValuationError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!authLoading && !isAuthenticated) {
@@ -98,6 +104,52 @@ export default function CreateCase() {
       toast({
         title: "Error",
         description: error.message || "Failed to calculate value",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const fetchValuationMutation = useMutation({
+    mutationFn: async () => {
+      const response = await fetch("/api/appraisal/estimate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          year: parseInt(formData.year),
+          make: formData.make,
+          model: formData.model,
+          trim: formData.trim || undefined,
+          mileage: parseInt(formData.mileageAtLoss) || 50000,
+          vin: formData.vin || undefined,
+          state: formData.state,
+          repairCost: parseFloat(formData.totalRepairCost) || 5000,
+        }),
+      });
+      if (!response.ok) {
+        const err = await response.json();
+        throw new Error(err.message || "Failed to fetch valuation");
+      }
+      return response.json();
+    },
+    onSuccess: (data) => {
+      setValuationData({
+        preAccidentValue: data.pricing?.fairRetailPrice || data.dvResult?.preAccidentValue || null,
+        postAccidentValue: data.pricing?.roughRetail || data.dvResult?.postRepairValue || null,
+        source: data.pricing?.source || "MarketCheck",
+        compsCount: data.comps?.length || 0,
+        searchNotes: data.compsSearchNotes || "",
+      });
+      setValuationError(null);
+      toast({
+        title: "Valuation Retrieved",
+        description: `Found market value from ${data.pricing?.source || "MarketCheck"}`,
+      });
+    },
+    onError: (error: Error) => {
+      setValuationError(error.message);
+      toast({
+        title: "Valuation Error",
+        description: error.message,
         variant: "destructive",
       });
     },
@@ -161,10 +213,10 @@ export default function CreateCase() {
       return;
     }
 
-    if (!formData.preAccidentValue) {
+    if (!valuationData?.preAccidentValue) {
       toast({
         title: "Error",
-        description: "Please enter a pre-accident value",
+        description: "Please fetch the market valuation first",
         variant: "destructive",
       });
       return;
@@ -173,7 +225,7 @@ export default function CreateCase() {
     calculateMutation.mutate({
       id: caseId,
       data: {
-        preAccidentValue: parseFloat(formData.preAccidentValue),
+        preAccidentValue: valuationData.preAccidentValue,
         repairCost: formData.totalRepairCost ? parseFloat(formData.totalRepairCost) : undefined,
         mileage: formData.mileageAtLoss ? parseInt(formData.mileageAtLoss) : undefined,
       },
@@ -402,40 +454,72 @@ export default function CreateCase() {
           {step === 4 && (
             <div className="space-y-6">
               <div className="bg-blue-50 p-4 rounded-md text-sm text-blue-800 mb-4">
-                <strong>Pro Tip:</strong> For the most accurate result, enter the NADA or Black
-                Book value if you have it. Otherwise we will estimate.
+                <strong>Automatic Valuation:</strong> We'll fetch current market values for your vehicle using real-time dealer pricing data.
               </div>
-              <div className="grid gap-4 md:grid-cols-2">
-                <div className="space-y-2">
-                  <Label>Pre-Accident Value (Clean Retail) *</Label>
-                  <div className="relative">
-                    <span className="absolute left-3 top-2.5 text-slate-500">$</span>
-                    <Input
-                      className="pl-7"
-                      type="number"
-                      placeholder="28000"
-                      value={formData.preAccidentValue}
-                      onChange={(e) => updateData("preAccidentValue", e.target.value)}
-                      data-testid="input-pre-value"
-                      required
-                    />
-                  </div>
+              
+              {!valuationData && !fetchValuationMutation.isPending && (
+                <div className="text-center py-8">
+                  <p className="text-muted-foreground mb-4">
+                    Click below to retrieve market values for your {formData.year} {formData.make} {formData.model}
+                  </p>
+                  <Button 
+                    onClick={() => fetchValuationMutation.mutate()}
+                    className="bg-primary"
+                    data-testid="button-fetch-valuation"
+                  >
+                    <DollarSign className="mr-2 h-4 w-4" />
+                    Get Market Valuation
+                  </Button>
+                  {valuationError && (
+                    <p className="text-red-600 text-sm mt-4">{valuationError}</p>
+                  )}
                 </div>
-                <div className="space-y-2">
-                  <Label>Post-Accident Value (Optional)</Label>
-                  <div className="relative">
-                    <span className="absolute left-3 top-2.5 text-slate-500">$</span>
-                    <Input
-                      className="pl-7"
-                      type="number"
-                      placeholder="22000"
-                      value={formData.postAccidentValue}
-                      onChange={(e) => updateData("postAccidentValue", e.target.value)}
-                      data-testid="input-post-value"
-                    />
-                  </div>
+              )}
+              
+              {fetchValuationMutation.isPending && (
+                <div className="text-center py-8">
+                  <Loader2 className="h-8 w-8 animate-spin mx-auto text-primary mb-4" />
+                  <p className="text-muted-foreground">Fetching market data...</p>
+                  <p className="text-xs text-muted-foreground mt-2">This may take a few seconds</p>
                 </div>
-              </div>
+              )}
+              
+              {valuationData && (
+                <div className="space-y-4">
+                  <div className="bg-emerald-50 border border-emerald-200 rounded-lg p-6">
+                    <h3 className="font-semibold text-emerald-800 mb-4">Market Valuation Retrieved</h3>
+                    <div className="grid gap-4 md:grid-cols-2">
+                      <div>
+                        <Label className="text-emerald-700">Pre-Accident Value (Clean Retail)</Label>
+                        <p className="text-2xl font-bold text-emerald-900" data-testid="text-pre-value">
+                          ${valuationData.preAccidentValue?.toLocaleString() || "N/A"}
+                        </p>
+                      </div>
+                      <div>
+                        <Label className="text-emerald-700">Post-Accident Value (Rough Retail)</Label>
+                        <p className="text-2xl font-bold text-emerald-900" data-testid="text-post-value">
+                          ${valuationData.postAccidentValue?.toLocaleString() || "N/A"}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="mt-4 pt-4 border-t border-emerald-200 text-sm text-emerald-700">
+                      <p>Source: {valuationData.source}</p>
+                      {valuationData.compsCount > 0 && (
+                        <p>{valuationData.compsCount} comparable vehicles analyzed</p>
+                      )}
+                    </div>
+                  </div>
+                  <Button 
+                    variant="outline" 
+                    onClick={() => fetchValuationMutation.mutate()}
+                    className="w-full"
+                    data-testid="button-refresh-valuation"
+                  >
+                    <RefreshCw className="mr-2 h-4 w-4" />
+                    Refresh Valuation
+                  </Button>
+                </div>
+              )}
             </div>
           )}
 
@@ -485,9 +569,9 @@ export default function CreateCase() {
                 <div>
                   <span className="text-muted-foreground">Pre-Accident Value:</span>
                   <div className="font-medium">
-                    {formData.preAccidentValue
-                      ? `$${parseFloat(formData.preAccidentValue).toLocaleString()}`
-                      : "Not specified"}
+                    {valuationData?.preAccidentValue
+                      ? `$${valuationData.preAccidentValue.toLocaleString()}`
+                      : "Not fetched yet"}
                   </div>
                 </div>
                 <div>
