@@ -19,27 +19,24 @@ export async function fetchThirdPartyValuations(
     vin: input.vin,
   });
 
-  const cleanRetail = pricing.fairRetailPrice;
-  const roughRetail = Math.round(cleanRetail * 0.70);
-
   return {
-    cleanRetailPreAccident: cleanRetail,
-    roughRetailPostAccident: roughRetail,
-    source: "MarketCheck API",
+    cleanRetailPreAccident: pricing.cleanRetail,
+    roughRetailPostAccident: pricing.roughRetail,
+    source: pricing.source,
     retrievedAt: new Date(),
   };
 }
 
 export async function fetchMarketComparables(
   input: AppraisalInput
-): Promise<{ comparables: ComparableListing[]; filterNotes: string }> {
-  const comps = await fetchRetailComps({
+): Promise<{ comparables: ComparableListing[]; filterNotes: string; mileageBand: string }> {
+  const { comps, searchNotes, mileageBand } = await fetchRetailComps({
     year: input.year,
     make: input.make,
     model: input.model,
     trim: input.trim || undefined,
-    state: "GA",
     mileage: input.mileage,
+    nationwide: true,
   });
 
   const mileageVariance = Math.max(5000, input.mileage * 0.2);
@@ -50,7 +47,7 @@ export async function fetchMarketComparables(
     c.mileage >= minMiles && c.mileage <= maxMiles && c.price > 0
   );
 
-  const topComps = filtered.slice(0, 3);
+  const topComps = filtered.length >= 3 ? filtered.slice(0, 3) : comps.slice(0, 3);
 
   const comparables: ComparableListing[] = topComps.map(c => ({
     sourceDealerName: c.dealerName,
@@ -69,17 +66,21 @@ export async function fetchMarketComparables(
     distanceMiles: c.distanceFromSubject || undefined,
   }));
 
-  let filterNotes = `Searched for ${input.year} ${input.make} ${input.model}`;
+  let filterNotes = `Searched nationwide for ${input.year} ${input.make} ${input.model}`;
   if (input.trim) filterNotes += ` ${input.trim}`;
   filterNotes += ` with mileage between ${Math.round(minMiles).toLocaleString()} and ${Math.round(maxMiles).toLocaleString()} miles.`;
 
   if (comparables.length < 3) {
-    filterNotes += ` Only ${comparables.length} qualifying comparable(s) found in Georgia market.`;
+    filterNotes += ` Only ${comparables.length} qualifying comparable(s) found in nationwide market.`;
   } else {
-    filterNotes += ` ${comparables.length} comparable vehicles selected.`;
+    filterNotes += ` ${comparables.length} comparable vehicles selected from nationwide search.`;
+  }
+  
+  if (searchNotes) {
+    filterNotes += ` Search details: ${searchNotes}`;
   }
 
-  return { comparables, filterNotes };
+  return { comparables, filterNotes, mileageBand };
 }
 
 export function computePreAccidentValue(
@@ -128,7 +129,7 @@ export async function runFullAppraisalCalculation(
 ): Promise<AppraisalComputationResult> {
   const thirdParty = await fetchThirdPartyValuations(input);
   
-  const { comparables, filterNotes } = await fetchMarketComparables(input);
+  const { comparables, filterNotes, mileageBand } = await fetchMarketComparables(input);
   
   const { comparablesAvgRetail, finalPreAccidentValue } = computePreAccidentValue(
     thirdParty,
@@ -148,7 +149,7 @@ export async function runFullAppraisalCalculation(
     finalPreAccidentValue,
     postAccidentValue,
     diminishedValue,
-    mileageBandDescription: getMileageBandDescription(input.mileage),
+    mileageBandDescription: mileageBand || getMileageBandDescription(input.mileage),
     comparableFilterNotes: filterNotes,
     createdAt: new Date(),
   };

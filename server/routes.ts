@@ -427,7 +427,7 @@ export async function registerRoutes(
         return res.status(400).json({ message: "Year, make, and model are required" });
       }
       
-      const comps = await fetchRetailComps({
+      const compsResult = await fetchRetailComps({
         year: parseInt(year),
         make,
         model,
@@ -437,7 +437,7 @@ export async function registerRoutes(
         zip,
       });
       
-      res.json({ comps });
+      res.json({ comps: compsResult.comps, searchNotes: compsResult.searchNotes });
     } catch (error) {
       console.error("Comps fetch error:", error);
       res.status(500).json({ message: "Failed to fetch comparable listings" });
@@ -463,7 +463,7 @@ export async function registerRoutes(
         mileage: parseInt(mileage),
       });
       
-      const comps = await fetchRetailComps({
+      const compsResult = await fetchRetailComps({
         year: parseInt(year),
         make,
         model,
@@ -482,11 +482,11 @@ export async function registerRoutes(
         isAtFault: false,
       };
       
-      const dvResult = computeDVAmount(pricing, comps, input);
+      const dvResult = computeDVAmount(pricing, compsResult.comps, input);
       
       res.json({
         pricing,
-        comps,
+        comps: compsResult.comps,
         dvResult,
       });
     } catch (error) {
@@ -533,7 +533,7 @@ export async function registerRoutes(
         vin: caseData.vin || undefined,
       });
       
-      const comps = await fetchRetailComps({
+      const compsResult = await fetchRetailComps({
         year: caseData.year,
         make: caseData.make,
         model: caseData.model,
@@ -555,7 +555,7 @@ export async function registerRoutes(
         vinData: vinData || undefined,
       };
       
-      const dvResult = computeDVAmount(pricing, comps, input, vinData || undefined);
+      const dvResult = computeDVAmount(pricing, compsResult.comps, input, vinData || undefined);
       
       const narrative = await generateAppraisalNarrative({
         claimantName: undefined,
@@ -572,7 +572,7 @@ export async function registerRoutes(
         claimNumber: caseData.claimNumber || undefined,
         dvResult,
         vinData: vinData || undefined,
-      }, comps);
+      }, compsResult.comps);
       
       const demandLetter = await generateDemandLetter({
         vehicleYear: caseData.year,
@@ -589,8 +589,8 @@ export async function registerRoutes(
         dvResult,
       });
       
-      const compMedianPrice = comps.length > 0
-        ? comps.map(c => c.price).sort((a, b) => a - b)[Math.floor(comps.length / 2)]
+      const compMedianPrice = compsResult.comps.length > 0
+        ? compsResult.comps.map((c: any) => c.price).sort((a: number, b: number) => a - b)[Math.floor(compsResult.comps.length / 2)]
         : null;
       
       const updated = await storage.updateCase(caseId, {
@@ -602,7 +602,7 @@ export async function registerRoutes(
         marketPriceRangeLow: pricing.priceRangeLow.toString(),
         marketPriceRangeHigh: pricing.priceRangeHigh.toString(),
         mileageAdjustedPrice: pricing.mileageAdjustedPrice.toString(),
-        compsJson: JSON.stringify(comps),
+        compsJson: JSON.stringify(compsResult.comps),
         compMedianPrice: compMedianPrice?.toString() || null,
         preAccidentValue: dvResult.preAccidentValue.toString(),
         postAccidentValue: dvResult.postRepairValue.toString(),
@@ -619,7 +619,7 @@ export async function registerRoutes(
       res.json({
         case: updated,
         pricing,
-        comps,
+        comps: compsResult.comps,
         dvResult,
         narrative,
         demandLetter,
