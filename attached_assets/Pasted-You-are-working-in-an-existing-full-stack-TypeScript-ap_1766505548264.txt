@@ -1,0 +1,444 @@
+You are working in an existing full-stack TypeScript app with:
+
+- React 19 + Vite frontend
+- Express + Node.js backend
+- PostgreSQL + Drizzle ORM
+- Current MVP diminished value appraisal feature
+
+The current DV logic is TOO BASIC and NOT defensible:
+- It simply asks the user for “pre-accident value” and “post-accident value”
+- It subtracts the two and calls that “diminished value”
+This will NOT stand up to insurer scrutiny or court review. Replace this with a robust, transparent, Georgia-specific DV framework.
+
+========================
+0. HIGH-LEVEL GOALS
+========================
+
+1) Make the system GEORGIA-ONLY for now:
+   - All legal sections, copy, and messaging are specifically for Georgia.
+   - Present this as a COMPETITIVE ADVANTAGE: “Georgia diminished value experts.”
+
+2) Overhaul the valuation pipeline to:
+   - Pull 3rd-party valuation data (BlackBook-equivalent via MarketCheck/MarketData).
+   - Pull 3 true comparables from live listings.
+   - Compute a defensible pre-accident value and diminished value using a documented formula.
+
+3) Add proper Georgia legal framework based on:
+   - Mabry v. State Farm Mut. Auto. Ins. Co., 274 Ga. 498 (2001) – used in ALL Georgia DV reports.
+   - Perma Ad Ideas of Am., Inc. v. Mayville, 158 Ga. App. 707 (1981) – used ONLY when the vehicle is leased to support lessee recovery.
+
+4) Generate a professional, multi-page PDF that:
+   - Mirrors the structure of a professional appraiser report.
+   - Includes Purpose of Report, Georgia DV law, case law summaries, Georgia Insurance Commissioner Directive 08-P&C-2, detailed calculations, and certification.
+
+5) Add an SVG-based damage diagram:
+   - A car silhouette with damage points marked as red dots based on selected key impact areas.
+
+6) Update marketing / onboarding copy:
+   - Make it clear we serve Georgia only.
+   - Emphasize we are Georgia DV specialists.
+   - Remove any multi-state language.
+
+Implement all of this with clean, strict TypeScript and modular code.
+
+========================
+1. DATA MODEL UPDATES
+========================
+
+Update the backend appraisal input model to remove “manual pre-accident value” and “manual post-accident value” and add a lease flag.
+
+In a shared types file, e.g. `src/shared/types/appraisal.ts`:
+
+export type AccidentHistoryFlag = "clean" | "prior_damage" | "unknown";
+
+export interface AppraisalInput {
+  id: string;
+  ownerName: string;
+  ownerAddress: string;
+  ownerPhone: string;
+  ownerEmail: string;
+
+  year: number;
+  make: string;
+  model: string;
+  trim: string;
+  vin: string;
+  licensePlate?: string;
+  stateOfRegistration: string; // still store it, but logic is GA-only for now
+  mileage: number;
+  accidentHistory: AccidentHistoryFlag;
+
+  isLeased: boolean; // NEW: used to decide whether to show Perma lessee language
+
+  insuranceCompany: string;
+  claimNumber: string;
+  adjusterName?: string;
+  adjusterEmail?: string;
+  adjusterPhone?: string;
+  dateOfLoss: string; // ISO
+
+  repairCenterName?: string;
+  repairCenterPhone?: string;
+  repairCenterAddress?: string;
+  repairDropOffDate?: string;
+  repairPickupDate?: string;
+
+  damageDescription?: string;
+  keyImpactAreas?: string[]; // textual codes like "front_bumper", "left_front_fender", etc.
+
+  stateOfLoss: "GA"; // Force to Georgia for now
+}
+
+export interface ThirdPartyValuations {
+  cleanRetailPreAccident: number;
+  roughRetailPostAccident: number;
+}
+
+export interface ComparableListing {
+  sourceDealerName: string;
+  sourceDealerPhone?: string;
+  sourceDealerAddress?: string;
+
+  year: number;
+  make: string;
+  model: string;
+  trim: string;
+  vin: string;
+  mileage: number;
+  listedPrice: number;
+  listingUrl?: string;
+
+  accidentHistory: AccidentHistoryFlag;
+}
+
+export interface AppraisalComputationResult {
+  appraisalId: string;
+
+  thirdParty: ThirdPartyValuations;
+  comparables: ComparableListing[];
+
+  comparablesAvgRetail: number;
+  finalPreAccidentValue: number;
+  postAccidentValue: number;
+  diminishedValue: number;
+
+  mileageBandDescription: string;
+  comparableFilterNotes: string;
+  createdAt: Date;
+}
+
+Update the Drizzle schema to match (tables for appraisals, appraisal_results, appraisal_comparables). Remove columns for manual pre/post values and replace with this computed structure.
+
+========================
+2. VALUATION PIPELINE (REPLACE THE OLD ONE)
+========================
+
+Remove the old logic that:
+- Asks the user for “preAccidentValue” and “postAccidentValue”
+- Computes diminishedValue = pre - post
+
+Instead, implement a service module: `src/server/services/appraisalValuationService.ts`
+
+import {
+  AppraisalInput,
+  ThirdPartyValuations,
+  ComparableListing,
+  AppraisalComputationResult,
+} from "../../shared/types/appraisal";
+
+export async function fetchThirdPartyValuations(
+  input: AppraisalInput
+): Promise<ThirdPartyValuations> {
+  // Use MARKET_API_BASE_URL + MARKET_API_KEY from ENV
+  // Call the appropriate valuation endpoint with year, make, model, trim, mileage, vin.
+  // Map the “clean retail” value to cleanRetailPreAccident.
+  // Map “rough retail” (or equivalent “damaged” or “low” value) to roughRetailPostAccident.
+  // Handle errors and throw a descriptive error if the API fails.
+}
+
+export async function fetchMarketComparables(
+  input: AppraisalInput
+): Promise<ComparableListing[]> {
+  // Use MARKET_API_BASE_URL + MARKET_API_KEY.
+  // Call the search/listings endpoint for used vehicles.
+  // Filters:
+  //   - same year, make, model, trim
+  //   - mileage within ±20% of input.mileage (or ±5,000 miles, whichever is larger)
+  //   - prefer “clean” accident history for a clean subject vehicle, or matching flags when possible
+  // Sort by distance in mileage and price, then select top 3.
+  // If fewer than 3 exist, note it in comparableFilterNotes but continue.
+}
+
+export function computePreAccidentValue(
+  thirdParty: ThirdPartyValuations,
+  comparables: ComparableListing[]
+): { comparablesAvgRetail: number; finalPreAccidentValue: number } {
+  const prices = comparables.map(c => c.listedPrice);
+  const comparablesAvgRetail =
+    prices.length > 0 ? Math.round(prices.reduce((a, b) => a + b, 0) / prices.length) : 0;
+
+  const finalPreAccidentValue = Math.round(
+    (thirdParty.cleanRetailPreAccident + comparablesAvgRetail) / 2
+  );
+
+  return { comparablesAvgRetail, finalPreAccidentValue };
+}
+
+export function computeDiminishedValue(
+  preAccidentValue: number,
+  thirdParty: ThirdPartyValuations
+): { postAccidentValue: number; diminishedValue: number } {
+  const postAccidentValue = Math.round(thirdParty.roughRetailPostAccident);
+  const rawDv = preAccidentValue - postAccidentValue;
+  const diminishedValue = rawDv > 0 ? rawDv : 0;
+  return { postAccidentValue, diminishedValue };
+}
+
+export async function runFullAppraisalCalculation(
+  appraisalId: string
+): Promise<AppraisalComputationResult> {
+  // 1) Load AppraisalInput from DB using appraisalId.
+  // 2) Call fetchThirdPartyValuations.
+  // 3) Call fetchMarketComparables.
+  // 4) Compute comparablesAvgRetail and finalPreAccidentValue.
+  // 5) Compute postAccidentValue and diminishedValue.
+  // 6) Persist AppraisalComputationResult and comparables into DB.
+  // 7) Return the result.
+}
+
+Update backend routes:
+
+- POST /api/appraisals
+  - Creates AppraisalInput (including isLeased).
+  - stateOfLoss must be "GA" for now.
+
+- POST /api/appraisals/:id/calculate
+  - Calls runFullAppraisalCalculation and returns JSON.
+
+- GET /api/appraisals/:id/report.pdf
+  - Ensures computation has run, then generates the PDF.
+
+Frontend:
+- Remove manual pre/post accident fields.
+- Add “Is this vehicle leased?” (Yes/No toggle).
+- After form submission, call /api/appraisals then /calculate, show summary, and provide a “Generate Certified Appraisal PDF” button.
+
+========================
+3. GEORGIA-ONLY LEGAL CONSTANTS
+========================
+
+Create a new module: `src/server/constants/georgiaLaw.ts`
+
+export interface GeorgiaLegalSections {
+  purposeOfReport: string;
+  georgiaDvStandard: string;
+  mabrySummary: string;
+  permaLesseeSummary?: string;
+  directiveSummary: string;
+  certificationText: string;
+  disclaimerText: string;
+}
+
+export function buildGeorgiaLegalSections(params: { isLeased: boolean }): GeorgiaLegalSections {
+  const purposeOfReport = `
+This report has been prepared to determine whether the subject vehicle has suffered inherent diminished value as a result of a collision in the State of Georgia. Inherent diminished value refers to the reduction in fair market value that remains after proper physical repairs, due to the vehicle’s now-documented accident history, stigma in the marketplace, and related buyer concerns.
+  `.trim();
+
+  const georgiaDvStandard = `
+Under Georgia law, recoverable property damage to a motor vehicle is measured as the difference between the vehicle’s fair market value immediately before the loss and its fair market value immediately after repairs have been completed, together with reasonable repair costs where applicable, not to exceed pre-loss value. When a vehicle is properly repaired, the owner may still recover any remaining loss in value, often referred to as diminished value.
+  `.trim();
+
+  const mabrySummary = `
+In Mabry v. State Farm Mut. Auto. Ins. Co., 274 Ga. 498 (2001), the Georgia Supreme Court confirmed that automobile insurers must evaluate and pay inherent diminished value where it exists under first-party physical damage coverage. Mabry makes clear that payment of repair costs alone is not always sufficient if the vehicle’s post-repair market value remains lower than its pre-loss value.
+  `.trim();
+
+  const permaLesseeSummary = params.isLeased
+    ? `
+In Perma Ad Ideas of Am., Inc. v. Mayville, 158 Ga. App. 707 (1981), the Court of Appeals held that it is immaterial that title to the vehicle is in another party’s name. The party in possession who suffers the financial loss may recover. For leased vehicles where the lessee bears responsibility for the vehicle’s condition or residual value, this principle supports the lessee’s right to pursue diminished value.
+    `.trim()
+    : "";
+
+  const directiveSummary = `
+The Georgia Office of Insurance and Safety Fire Commissioner, in Directive 08-P&C-2, has advised that no single formula is approved as a mandatory standard for calculating diminished value. Each claim must be evaluated on its own facts, and insurers should not represent that a particular formula result is the only amount owed. This report follows that guidance by relying on real market data, a recognized third-party valuation source, and a transparent, case-specific analysis.
+  `.trim();
+
+  const certificationText = `
+I, the undersigned appraiser, certify that this diminished value appraisal report has been prepared independently and impartially, using information believed to be accurate and reliable. The opinions and conclusions expressed herein are my professional judgments, based on the data reviewed, standard appraisal practices, and my experience in automotive valuation.
+
+I have no present or contemplated financial interest in the vehicle that is the subject of this report, other than customary compensation for preparing this appraisal. My fee is not contingent upon the outcome of any claim or dispute related to this report.
+
+Certified Auto Appraiser
+IACP Certification #00000000
+  `.trim();
+
+  const disclaimerText = `
+This report is intended to assist the vehicle owner and other interested parties in understanding the estimated inherent diminished value of the subject vehicle under Georgia law as of the date of loss and completion of repairs. All conclusions are based on the information available at the time of preparation, including third-party valuation data and market listings believed to be reliable but not guaranteed.
+
+Final settlement of any claim remains a matter between the vehicle owner and the insurer or other responsible party. This report does not constitute legal advice, and users should consult legal counsel regarding their specific rights and remedies under Georgia law.
+  `.trim();
+
+  return {
+    purposeOfReport,
+    georgiaDvStandard,
+    mabrySummary,
+    permaLesseeSummary: permaLesseeSummary || undefined,
+    directiveSummary,
+    certificationText,
+    disclaimerText,
+  };
+}
+
+Use `buildGeorgiaLegalSections({ isLeased: appraisal.isLeased })` in the PDF generator.
+
+========================
+4. SVG DAMAGE DIAGRAM
+========================
+
+Create `src/server/assets/vehicle-outline.svg` as a simple top-down or side-view silhouette. It should have a known viewBox (e.g., 0 0 400 200) and be simple enough to treat as a background.
+
+Then create a mapping in `src/server/constants/damageMap.ts`:
+
+export type DamageCode =
+  | "front_bumper"
+  | "rear_bumper"
+  | "left_front_fender"
+  | "right_front_fender"
+  | "left_rear_quarter"
+  | "right_rear_quarter"
+  | "hood"
+  | "trunk"
+  | "roof";
+
+export interface DamagePoint {
+  code: DamageCode;
+  x: number; // normalized 0–1
+  y: number; // normalized 0–1
+}
+
+export const DAMAGE_POINTS: DamagePoint[] = [
+  { code: "front_bumper", x: 0.5, y: 0.1 },
+  { code: "rear_bumper", x: 0.5, y: 0.9 },
+  { code: "left_front_fender", x: 0.25, y: 0.2 },
+  { code: "right_front_fender", x: 0.75, y: 0.2 },
+  { code: "left_rear_quarter", x: 0.25, y: 0.8 },
+  { code: "right_rear_quarter", x: 0.75, y: 0.8 },
+  { code: "hood", x: 0.5, y: 0.25 },
+  { code: "trunk", x: 0.5, y: 0.75 },
+  { code: "roof", x: 0.5, y: 0.5 },
+];
+
+In the PDF generator (see next section), when rendering the damage diagram:
+
+- Draw the SVG as a background.
+- For each `keyImpactAreas` entry that matches a DamageCode, place a small red circle at the corresponding coordinate (scaled to the PDF page area).
+
+========================
+5. PDF GENERATION (GEORGIA-ONLY, PROFESSIONAL LAYOUT)
+========================
+
+Use a PDF library like pdfkit or pdf-lib. In `src/server/services/appraisalPdfService.ts`:
+
+- Load:
+  - AppraisalInput
+  - AppraisalComputationResult
+  - Comparables
+  - const sections = buildGeorgiaLegalSections({ isLeased: appraisal.isLeased });
+
+Structure the PDF pages:
+
+PAGE 1 – COVER
+- Title: “Georgia Diminished Value Appraisal Report”
+- Subtitle: “Prepared for the State of Georgia”
+- Company name, logo, and contact block.
+- Owner name and date somewhere on the page.
+
+PAGE 2 – OWNER, VEHICLE, INSURANCE
+- Three sections: Owner Information, Vehicle Information, Insurance Information, similar to your reference report.
+
+PAGE 3 – PURPOSE OF REPORT + GEORGIA LAW
+- Use sections.purposeOfReport and sections.georgiaDvStandard.
+- Then a labeled subsection “Key Georgia Case Law – Mabry v. State Farm” that prints sections.mabrySummary.
+- If sections.permaLesseeSummary exists, add a “Leased Vehicle Consideration – Perma Ad Ideas v. Mayville” subsection and print that text.
+
+PAGE 4 – REPAIR CENTER + DAMAGE DESCRIPTION + DAMAGE DIAGRAM
+- Repair center block using the fields from AppraisalInput.
+- Damage description in text.
+- Draw the SVG car outline and overlay red dots for each `keyImpactAreas` damage code using DAMAGE_POINTS.
+
+PAGE 5 – THIRD-PARTY MARKET VALUATION
+- Show:
+  - “Third-Party Pre-Accident (Clean Retail): $X”
+  - “Third-Party Post-Accident (Rough Retail): $Y”
+- Short explanation paragraph that this comes from a recognized third-party provider via API.
+
+PAGE 6 – COMPARABLE VEHICLE ANALYSIS
+- Table listing each ComparableListing with:
+  - #, Dealer Name, Phone, Vehicle (Y/M/M/T), Mileage, VIN, Listed Price.
+- At bottom: “Average Retail Price of Comparables: $[comparablesAvgRetail]”
+
+PAGE 7 – GEORGIA DIRECTIVE 08-P&C-2 SUMMARY
+- Heading: “Georgia Insurance Commissioner Directive 08-P&C-2”
+- Print sections.directiveSummary.
+
+PAGE 8 – RESULTS OF EVALUATION (NARRATIVE)
+- Narrative text summarizing:
+  - That the vehicle has sustained inherent diminished value.
+  - That analysis considered year/make/model, mileage, damage location, 3rd-party valuation, and comparables.
+  - The final diminished value amount: $[diminishedValue].
+
+PAGE 9 – REPORT VALUES & DIMINISHED VALUE CALCULATION TABLE
+- Box/table with:
+  - Third-Party Pre-Accident (Clean Retail) – $[cleanRetailPreAccident]
+  - Comparables Average Retail Value – $[comparablesAvgRetail]
+  - Final Pre-Accident Value (Average of Above) – $[finalPreAccidentValue]
+  - Third-Party Post-Accident (Rough Retail) – $[postAccidentValue]
+  - Calculated Diminished Value (Pre – Post) – $[diminishedValue]
+- Add a one-line explanation under the table:
+  - “Diminished value is calculated as the difference between the final pre-accident value and the third-party post-accident value.”
+
+PAGE 10 – CERTIFICATION & DISCLAIMER
+- Print sections.certificationText.
+- Then print sections.disclaimerText at the bottom.
+
+Styling:
+- Consistent header fonts and bold section titles.
+- Page footer: “Georgia Diminished Value Appraisal Report – [Owner Name] – Page X of Y”.
+
+========================
+6. GEORGIA-ONLY MARKETING & UX MESSAGING
+========================
+
+Update the frontend landing / primary pages to explicitly position the product as a Georgia specialist. For example, in the main hero and feature sections:
+
+- Hero headline:
+  - “Georgia’s Diminished Value Experts”
+
+- Subheading:
+  - “We specialize in one thing: helping Georgia drivers recover fair diminished value after an accident.”
+
+- Supporting bullets:
+  - “Built specifically around Georgia’s unique diminished value law.”
+  - “Backed by Georgia Supreme Court and Court of Appeals case law, including Mabry v. State Farm and Perma Ad Ideas v. Mayville.”
+  - “Powered by real market data, a third-party valuation provider, and live comparable listings – not guesswork or canned formulas.”
+
+- Remove any references to Florida, North Carolina, or other states.
+- Intake flow:
+  - State of loss = Georgia (GA) only for now.
+  - Include a simple message: “Currently serving Georgia claims only.”
+
+========================
+7. CLEANUP
+========================
+
+- Remove old manual pre/post accident value fields from:
+  - Frontend forms
+  - Backend models
+  - Database schema (migrations)
+  - Any old “diminished value = pre - post” logic
+
+- Ensure:
+  - All TypeScript types compile.
+  - ENV variables are used for API keys.
+  - Error handling is in place for API failures with user-friendly frontend messaging.
+
+Implement all of the above now.
