@@ -105,16 +105,16 @@ async function fetchQuickChart(cleanRetail: number, roughRetail: number): Promis
     return Buffer.from(await response.arrayBuffer());
   } catch (error) {
     console.log("QuickChart fetch failed, generating placeholder");
-    return createPlaceholderChart();
+    return await createPlaceholderChart();
   }
 }
 
-function createPlaceholderChart(): Buffer {
+async function createPlaceholderChart(): Promise<Buffer> {
   const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="400" height="250">
     <rect width="400" height="250" fill="#f5f5f5"/>
-    <text x="200" y="125" text-anchor="middle" fill="#666" font-size="14">Chart unavailable</text>
+    <text x="200" y="125" text-anchor="middle" fill="#666" font-size="14" font-family="Helvetica, Arial, sans-serif">Chart unavailable</text>
   </svg>`;
-  return Buffer.from(svg);
+  return sharp(Buffer.from(svg)).png().toBuffer();
 }
 
 function drawSectionHeader(page: PDFPage, fonts: FontSet, title: string, y: number): number {
