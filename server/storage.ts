@@ -9,11 +9,14 @@ import {
   type InsertChatMessage,
   type WizardAppraisal,
   type InsertWizardAppraisal,
+  type PasswordResetToken,
+  type InsertPasswordResetToken,
   users,
   cases,
   prequalLeads,
   chatMessages,
   wizardAppraisals,
+  passwordResetTokens,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, and, desc } from "drizzle-orm";
@@ -43,6 +46,12 @@ export interface IStorage {
   createWizardAppraisal(appraisal: InsertWizardAppraisal): Promise<WizardAppraisal>;
   getWizardAppraisal(id: string): Promise<WizardAppraisal | undefined>;
   updateWizardAppraisal(id: string, updates: Partial<InsertWizardAppraisal>): Promise<WizardAppraisal | undefined>;
+
+  // Password reset methods
+  createPasswordResetToken(token: InsertPasswordResetToken): Promise<PasswordResetToken>;
+  getPasswordResetToken(token: string): Promise<PasswordResetToken | undefined>;
+  markPasswordResetTokenUsed(token: string): Promise<void>;
+  updateUserPassword(userId: string, hashedPassword: string): Promise<void>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -127,6 +136,31 @@ export class DatabaseStorage implements IStorage {
       .where(eq(wizardAppraisals.id, id))
       .returning();
     return updated;
+  }
+
+  // Password reset methods
+  async createPasswordResetToken(token: InsertPasswordResetToken): Promise<PasswordResetToken> {
+    const [newToken] = await db.insert(passwordResetTokens).values(token).returning();
+    return newToken;
+  }
+
+  async getPasswordResetToken(token: string): Promise<PasswordResetToken | undefined> {
+    const [resetToken] = await db.select().from(passwordResetTokens)
+      .where(eq(passwordResetTokens.token, token))
+      .limit(1);
+    return resetToken;
+  }
+
+  async markPasswordResetTokenUsed(token: string): Promise<void> {
+    await db.update(passwordResetTokens)
+      .set({ usedAt: new Date() })
+      .where(eq(passwordResetTokens.token, token));
+  }
+
+  async updateUserPassword(userId: string, hashedPassword: string): Promise<void> {
+    await db.update(users)
+      .set({ password: hashedPassword })
+      .where(eq(users.id, userId));
   }
 }
 

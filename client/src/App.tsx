@@ -7,6 +7,8 @@ import { Layout } from "@/components/layout/Layout";
 import { AuthProvider } from "@/hooks/useAuth";
 import LandingPage from "@/pages/LandingPage";
 import AuthPage from "@/pages/AuthPage";
+import ForgotPasswordPage from "@/pages/ForgotPasswordPage";
+import ResetPasswordPage from "@/pages/ResetPasswordPage";
 import Dashboard from "@/pages/Dashboard";
 import CreateCase from "@/pages/CreateCase";
 import ValuationResult from "@/pages/ValuationResult";
@@ -19,6 +21,8 @@ function Router() {
       <Switch>
         <Route path="/" component={LandingPage} />
         <Route path="/auth" component={AuthPage} />
+        <Route path="/forgot-password" component={ForgotPasswordPage} />
+        <Route path="/reset-password" component={ResetPasswordPage} />
         <Route path="/dashboard" component={Dashboard} />
         <Route path="/create-case" component={CreateCase} />
         <Route path="/result/:id" component={ValuationResult} />
