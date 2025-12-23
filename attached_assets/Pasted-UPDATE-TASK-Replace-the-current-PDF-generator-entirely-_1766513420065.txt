@@ -1,0 +1,58 @@
+UPDATE TASK:
+Replace the current PDF generator entirely. Do not patch it — rewrite it using a professional-grade PDF engine.
+
+REQUIREMENTS:
+
+1. Use the `pdf-lib` library for building the DV appraisal PDF.
+2. Support SVG import for:
+   • Vehicle diagrams (top, front, side, rear views)
+   • Section icons (repair wrench, document icon, car icon)
+   • Styled section headers with red underline (matching SAA visuals)
+3. Support PNG/JPEG embedding for:
+   • Charts (valuation high vs low)
+   • Damage point overlays
+   • Branding/logo assets
+
+FILE: /src/server/services/appraisalPdfService.ts
+Replace all logic with a new template-driven generator.
+
+STRUCTURE:
+The PDF must include 10 pages that mimic the structure and visual polish of the Select Auto Appraisals report:
+
+PAGE 1 – COVER  
+PAGE 2 – OWNER / VEHICLE / INSURANCE  
+PAGE 3 – PURPOSE OF REPORT + GEORGIA LAW + CASE LAW  
+PAGE 4 – REPAIR CENTER + DAMAGE DIAGRAM (4-view SVG overlay)  
+PAGE 5 – THIRD-PARTY VALUATION + HIGH/LOW CHART  
+PAGE 6 – COMPARABLES TABLE (3 nationwide comps required)  
+PAGE 7 – DIRECTIVE 08-P&C-2 SUMMARY  
+PAGE 8 – RESULTS OF EVALUATION (Long narrative)  
+PAGE 9 – DV CALCULATION TABLE  
+PAGE 10 – CERTIFICATION PAGE
+
+LAYOUT REQUIREMENTS:
+• Use a grid and column system similar to SAA.
+• Use consistent typography (Inter or Helvetica).
+• Headers: 16–22pt bold.
+• Body text: 9–11pt.
+• Section red underline stroke: 2px thick #cc0000.
+• Logos and icons must be aligned as in the reference PDF.
+• Table borders must be light grey (#dddddd).
+• Page footers must include:
+  “Georgia Diminished Value Appraisal Report – [Owner Name] – Page X of 10”
+
+DAMAGE DIAGRAM:
+• Import multi-view vehicle SVGs stored in /assets/vehicle/.
+• Overlay red circles based on keyImpactAreas[] mapped coordinates.
+• Each circle = 12px diameter, #cc0000 fill with 60% opacity.
+
+CHART GENERATION:
+Use chart.js or quickchart.io to generate a simple bar chart:
+• Clean Retail vs Rough Retail comparison
+• Embed chart as PNG into Page 5.
+
+IMPORTANT:
+Do NOT generate text-based PDFs anymore.  
+All pages must be visually laid out using positioned elements.
+
+Implement the new PDF generator as described.
