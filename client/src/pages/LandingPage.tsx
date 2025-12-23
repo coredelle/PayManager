@@ -33,17 +33,17 @@ export default function LandingPage() {
             </div>
             
             <h1 className="text-4xl md:text-5xl lg:text-6xl font-serif font-bold leading-tight mb-6 tracking-tight" data-testid="hero-title">
-              Get Paid What Your Car Lost in Value
+              Georgia's Diminished Value Experts
             </h1>
             
             <p className="text-lg md:text-xl text-slate-300 mb-8 leading-relaxed max-w-3xl mx-auto" data-testid="hero-subtitle">
-              When your car has been in an accident buyers will not pay the same price they would have before the damage, even after quality repairs. The difference in resale value is called Diminished Value. Insurers are required to compensate you for this loss when you are not at fault. Our IACP Certified Diminished Value Appraisal calculates your vehicle's true loss in value and delivers a court ready, insurer recognized appraisal instantly so you can claim the full amount you are owed.
+              We specialize in one thing: helping Georgia drivers recover fair diminished value after an accident. Built specifically around Georgia's unique diminished value law. Backed by Georgia Supreme Court and Court of Appeals case law, including Mabry v. State Farm and Perma Ad Ideas v. Mayville. Powered by real market data, a third-party valuation provider, and live comparable listings – not guesswork or canned formulas.
             </p>
 
             {/* Statute of Limitations Block */}
             <div className="bg-slate-800/50 border border-slate-700 rounded-lg px-6 py-4 mb-8 max-w-2xl mx-auto" data-testid="statute-block">
               <p className="text-slate-300 text-base">
-                You can pursue diminished value for up to 4 years after an accident in many states. Even if your repair was months or years ago you may still be eligible to recover lost value.
+                Georgia law allows you to pursue diminished value for up to 4 years after an accident. Even if your repair was months or years ago you may still be eligible to recover lost value. Currently serving Georgia claims only.
               </p>
             </div>
             
@@ -58,9 +58,9 @@ export default function LandingPage() {
                 <ArrowRight className="ml-2 h-5 w-5" />
               </Button>
               
-              <Link href="/appraisal/start">
+              <Link href="/georgia-appraisal">
                 <Button variant="outline" size="lg" className="text-white border-white/30 hover:bg-white/10 h-14 text-lg px-8 backdrop-blur-sm w-full sm:w-auto" data-testid="button-generate-appraisal">
-                  Generate my IACP certified diminished value appraisal
+                  Generate my Georgia DV appraisal
                 </Button>
               </Link>
             </div>
@@ -74,11 +74,11 @@ export default function LandingPage() {
             <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
               <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-slate-800/50 text-slate-300 text-sm font-medium" data-testid="badge-states">
                 <ShieldCheck className="h-4 w-4 text-emerald-400" />
-                Specialized in Georgia, Florida, and North Carolina
+                Georgia Diminished Value Specialists
               </div>
               <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-slate-800/50 text-slate-300 text-sm font-medium" data-testid="badge-instant">
                 <Zap className="h-4 w-4 text-emerald-400" />
-                Instant appraisal delivery
+                Mabry v. State Farm Compliant
               </div>
             </div>
           </div>
@@ -183,15 +183,15 @@ export default function LandingPage() {
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-4xl mx-auto text-center">
             <div className="py-4" data-testid="stat-average-recovery">
               <div className="text-4xl md:text-5xl font-bold text-emerald-400 mb-2">$3,400</div>
-              <div className="text-slate-400">Average diminished value recovery</div>
+              <div className="text-slate-400">Average Georgia DV recovery</div>
             </div>
             <div className="py-4 md:border-l md:border-r border-slate-700" data-testid="stat-guarantee">
               <div className="text-4xl md:text-5xl font-bold text-emerald-400 mb-2">100%</div>
               <div className="text-slate-400">Money back guarantee</div>
             </div>
             <div className="py-4" data-testid="stat-states">
-              <div className="text-4xl md:text-5xl font-bold text-emerald-400 mb-2">3 states</div>
-              <div className="text-slate-400">Specialized in GA, FL, NC</div>
+              <div className="text-4xl md:text-5xl font-bold text-emerald-400 mb-2">Georgia</div>
+              <div className="text-slate-400">Mabry & Perma Case Law</div>
             </div>
           </div>
         </div>
@@ -252,10 +252,10 @@ export default function LandingPage() {
 
               <AccordionItem value="item-2" data-testid="faq-states">
                 <AccordionTrigger className="text-left text-lg font-medium">
-                  Do I need a diminished value appraisal in Georgia, Florida, or North Carolina
+                  Why is Georgia special for diminished value claims
                 </AccordionTrigger>
                 <AccordionContent className="text-muted-foreground text-base leading-relaxed">
-                  Yes. These states recognize diminished value claims in many not at fault accidents. A certified appraisal helps prove your loss with market data and law citations.
+                  Georgia's Supreme Court ruled in Mabry v. State Farm (2001) that insurers must pay inherent diminished value when it exists. Georgia Insurance Commissioner Directive 08-P&C-2 prohibits insurers from using a one-size-fits-all formula. Our appraisals are built around this Georgia-specific legal framework.
                 </AccordionContent>
               </AccordionItem>
 

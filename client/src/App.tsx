@@ -13,6 +13,7 @@ import Dashboard from "@/pages/Dashboard";
 import CreateCase from "@/pages/CreateCase";
 import ValuationResult from "@/pages/ValuationResult";
 import AppraisalWizardPage from "@/pages/AppraisalWizardPage";
+import GeorgiaAppraisalPage from "@/pages/GeorgiaAppraisalPage";
 import NotFound from "@/pages/not-found";
 
 function Router() {
@@ -27,6 +28,7 @@ function Router() {
         <Route path="/create-case" component={CreateCase} />
         <Route path="/result/:id" component={ValuationResult} />
         <Route path="/appraisal/start" component={AppraisalWizardPage} />
+        <Route path="/georgia-appraisal" component={GeorgiaAppraisalPage} />
         <Route component={NotFound} />
       </Switch>
     </Layout>
