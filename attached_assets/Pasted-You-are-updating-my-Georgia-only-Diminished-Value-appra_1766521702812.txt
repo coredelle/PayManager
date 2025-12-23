@@ -1,0 +1,127 @@
+You are updating my Georgia-only Diminished Value appraisal MVP.
+
+GOAL:
+1) Fix data credibility: always pull and display (a) third-party valuations and (b) 3 comparable vehicles with supporting history evidence.
+2) Fix valuation math: compute final pre-accident value from 3rd-party valuation + average of 3 market comps, then compute DV as (pre - post).
+3) Upgrade report completeness: the generated PDF must mirror a professional appraisal report (cover page, sections, tables, citations, certification page) similar to the gold-standard sample report.
+
+SCOPE & POSITIONING:
+- Georgia ONLY everywhere in the product and report (UI copy, headers, marketing value prop). Position as "Georgia diminished value experts."
+- Always include Mabry v. State Farm in GA reports.
+- Add a new intake question: "Are you the titled owner or a lessee (leaseholder)?" If lessee, dynamically include Perma Ad Ideas v. Mayville (158 Ga. App. 707) language about possession/financial loss not requiring title ownership. If not lessee, do not include it.
+- Keep certification simple for now (use a placeholder certification number), but include a certification page in the PDF.
+
+DATA PROVIDER (MarketCheck):
+Use MarketCheck APIs (do not mention Black Book).
+Use MarketCheck’s own product naming/credibility language where appropriate (e.g., MarketCheck Price™ and VINData AAMVA/NMVTIS report).
+
+REQUIRED API CALLS (server-side):
+1) MarketCheck Price™ (Premium tier if available so we can get comparable listings):
+   GET https://api.marketcheck.com/v2/predict/car/us/marketcheck_price/comparables
+   Required params: api_key, vin, miles, dealer_type, and location (zip OR city+state).
+   Response includes marketcheck_price and comparables.listings[].
+
+2) VINData AAMVA (NMVTIS) report for:
+   a) the SUBJECT VIN (to show title/brand/salvage/odometer history evidence)
+   b) each COMP VIN (same evidence)
+   First attempt:
+     GET https://api.marketcheck.com/v2/vindata/access-report/aamva/{vin}
+   If 422 (no report exists), fallback:
+     GET https://api.marketcheck.com/v2/vindata/generate-report/aamva/{vin}
+   Store and display the relevant report fields in the PDF.
+
+3) OPTIONAL BACKUP comps path (only if MarketCheck Price comparables returns < 3 usable comps):
+   Use Inventory Search:
+     GET https://api.marketcheck.com/v2/search/car/active
+   Filter by: year, make, model, trim, miles range.
+   Pull listings, then run VINData on their VINs to enforce same-history filtering.
+
+COMPARABLE RULES:
+We must always output 3 comps.
+Primary approach:
+- Use MarketCheck Price comparables.listings[] as the “open market comps pool”.
+- Filter comps to: same year, make, model, trim.
+- Mileage similarity: within +/- 10% of subject miles (configurable constant).
+- “Same accident history” requirement:
+   Use VINData AAMVA/NMVTIS evidence. For now, interpret “history match” as:
+   - Same presence/absence of title brands AND
+   - Same presence/absence of junk/salvage/total loss records
+   - (and optionally similar odometer consistency flags if available)
+   If subject shows no brands and no salvage/total loss, comps must also show none.
+If strict filtering yields < 3 comps:
+- Relax mileage window gradually (e.g., 10% -> 15% -> 20%)
+- If still < 3, keep exact vehicle match, accept closest history match, and clearly label in the report:
+  “No exact-history matches were available; closest-title-history matches were used based on NMVTIS/VINData fields.”
+Never return “no comps” and never omit the comps table.
+
+VALUATION LOGIC (must be transparent in PDF):
+Inputs:
+- Subject VIN, mileage, location
+- Pre-accident third-party value: use MarketCheck Price™ marketcheck_price output for the subject (treat as pre-accident baseline).
+- 3 market comps: use 3 selected comp listings’ retail list prices (price field) and compute average.
+Final Pre-Accident Value:
+- final_pre = (marketcheck_price_pre + avg_comp_price) / 2
+
+Post-Accident third-party value:
+- Call MarketCheck Price™ again for the subject using same vin/miles/location but apply a “post-accident adjustment”.
+Because MarketCheck Price endpoint does not accept accident/damage as a parameter, implement a GA-testing placeholder:
+  post_value = marketcheck_price_pre * POST_ACCIDENT_FACTOR
+Where POST_ACCIDENT_FACTOR is a constant (e.g., 0.90 for testing) stored in a config file and clearly disclosed in the report as a temporary testing assumption.
+(We will replace this with a more defensible method later, but for now it must at least be consistent and transparent.)
+
+Diminished Value:
+- dv = final_pre - post_value
+- clamp dv at minimum 0.
+
+CRITICAL: show a calculation block in the PDF with the exact numbers and equation.
+
+PDF GENERATION (must be professional):
+Do NOT use Replit’s basic PDF output.
+Implement server-side PDF generation using a proper HTML-to-PDF renderer:
+- Use Playwright (Chromium) or Puppeteer.
+- Create a print-ready HTML template (cover page + table of contents feel + section headers + consistent fonts + footer with page numbers).
+- Use CSS for professional styling: margins, typography, section dividers, table styling, consistent spacing, and page breaks.
+- Generate a single PDF that mirrors the structure of the gold-standard example report:
+  Required sections:
+  1) Cover page
+  2) Owner information
+  3) Vehicle information
+  4) Insurance information
+  5) Purpose of report
+  6) Georgia law statement + case law (Mabry always; Perma Ad Ideas only if lessee)
+  7) Repair center information
+  8) Damage location information
+  9) Market research analysis (describe the data sources and methodology)
+  10) Comparable vehicles table (dealer, phone, vehicle details, mileage, VIN, marketed retail price, plus “title/brand history summary” from VINData)
+  11) Results of evaluation (summary narrative)
+  12) Reported values + diminished value calculation block (transparent math)
+  13) Office of Insurance and Safety Fire Commissioner Directive 08-P&C-2 (include as a referenced section)
+  14) Certification / declarations page (placeholder certification number for now)
+
+DATA TRACEABILITY:
+- In the PDF, include a “Data Sources” subsection that states the report uses:
+  - MarketCheck Price™ valuation and comparable listings
+  - VINData AAMVA / NMVTIS title history data via MarketCheck integration
+Use MarketCheck’s own naming; do not say Black Book.
+
+ENGINEERING DELIVERABLES:
+- Create a services layer: marketcheckClient.ts with typed methods:
+  getMarketcheckPriceWithComparables(...)
+  getVinDataReport(vin) with access->generate fallback
+  searchInventoryBackup(...)
+- Add robust logging: if comps selection fails, log why (filter stage counts).
+- Add automated test: given a known VIN, the pipeline returns exactly 3 comps and generates a PDF.
+
+UI / INTAKE CHANGES:
+- Add the “owner vs lessee” question.
+- Add an “Upload repair invoice/RO” option (for now optional) OR manual fields for repair center + damage area; store these fields and print them in the report.
+- Do not block report generation if upload is missing; allow manual entry.
+
+Finally: run an end-to-end test and show in console logs:
+- marketcheck_price_pre
+- comp prices and average
+- final_pre
+- post_value
+- dv
+- selected comps with VINs
+- VINData summary flags for subject and comps (brands? salvage/total loss?).

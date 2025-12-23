@@ -249,6 +249,7 @@ export const georgiaAppraisals = pgTable("georgia_appraisals", {
   mileage: integer("mileage").notNull(),
   accidentHistory: accidentHistoryEnum("accident_history").notNull().default("unknown"),
   isLeased: integer("is_leased").notNull().default(0),
+  ownershipType: text("ownership_type").default("owner"),
 
   insuranceCompany: text("insurance_company").notNull(),
   claimNumber: text("claim_number").notNull(),

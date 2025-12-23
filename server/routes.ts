@@ -13,6 +13,8 @@ import { generateAppraisalNarrative, generateDemandLetter, generateNegotiationRe
 import { sendPasswordResetEmail } from "./services/email";
 import { runFullAppraisalCalculation } from "./services/appraisalValuationService";
 import { generateAppraisalPdf } from "./services/appraisalPdfService";
+import { computeFullValuation, type ValuationResult } from "./services/marketcheckClient";
+import { generateAppraisalPdf as generatePlaywrightPdf, type AppraisalPdfInput } from "./services/pdfGeneratorPlaywright";
 import type { AppraisalInput as GeorgiaAppraisalInput, DamageCode } from "@shared/types/appraisal";
 
 declare module "express-session" {
@@ -901,59 +903,40 @@ export async function registerRoutes(
         return res.status(404).json({ message: "Appraisal not found" });
       }
 
-      const keyImpactAreas: DamageCode[] = appraisal.keyImpactAreas 
-        ? JSON.parse(appraisal.keyImpactAreas) 
-        : [];
+      console.log(`\n========== CALCULATING GEORGIA APPRAISAL ==========`);
+      console.log(`Appraisal ID: ${appraisal.id}`);
+      console.log(`Vehicle: ${appraisal.year} ${appraisal.make} ${appraisal.model} ${appraisal.trim}`);
+      console.log(`VIN: ${appraisal.vin}`);
+      console.log(`Mileage: ${appraisal.mileage}`);
 
-      const input: GeorgiaAppraisalInput = {
-        id: appraisal.id,
-        ownerName: appraisal.ownerName,
-        ownerAddress: appraisal.ownerAddress,
-        ownerPhone: appraisal.ownerPhone,
-        ownerEmail: appraisal.ownerEmail,
+      const valuationResult = await computeFullValuation({
+        vin: appraisal.vin,
+        miles: appraisal.mileage,
         year: appraisal.year,
         make: appraisal.make,
         model: appraisal.model,
-        trim: appraisal.trim,
-        vin: appraisal.vin,
-        licensePlate: appraisal.licensePlate || undefined,
-        stateOfRegistration: appraisal.stateOfRegistration,
-        mileage: appraisal.mileage,
-        accidentHistory: appraisal.accidentHistory as "clean" | "prior_damage" | "unknown",
-        isLeased: appraisal.isLeased === 1,
-        insuranceCompany: appraisal.insuranceCompany,
-        claimNumber: appraisal.claimNumber,
-        adjusterName: appraisal.adjusterName || undefined,
-        adjusterEmail: appraisal.adjusterEmail || undefined,
-        adjusterPhone: appraisal.adjusterPhone || undefined,
-        dateOfLoss: appraisal.dateOfLoss,
-        repairCenterName: appraisal.repairCenterName || undefined,
-        repairCenterPhone: appraisal.repairCenterPhone || undefined,
-        repairCenterAddress: appraisal.repairCenterAddress || undefined,
-        repairDropOffDate: appraisal.repairDropOffDate || undefined,
-        repairPickupDate: appraisal.repairPickupDate || undefined,
-        totalRepairCost: appraisal.totalRepairCost ? parseFloat(appraisal.totalRepairCost) : undefined,
-        damageDescription: appraisal.damageDescription || undefined,
-        keyImpactAreas,
-        stateOfLoss: "GA",
-      };
-
-      const result = await runFullAppraisalCalculation(input);
+        trim: appraisal.trim || undefined,
+        repairCost: appraisal.totalRepairCost ? parseFloat(appraisal.totalRepairCost) : undefined,
+      });
 
       const updated = await storage.updateGeorgiaAppraisal(req.params.id, {
-        cleanRetailPreAccident: result.thirdParty.cleanRetailPreAccident.toString(),
-        roughRetailPostAccident: result.thirdParty.roughRetailPostAccident.toString(),
-        comparablesAvgRetail: result.comparablesAvgRetail.toString(),
-        finalPreAccidentValue: result.finalPreAccidentValue.toString(),
-        postAccidentValue: result.postAccidentValue.toString(),
-        diminishedValue: result.diminishedValue.toString(),
-        comparablesJson: JSON.stringify(result.comparables),
-        mileageBandDescription: result.mileageBandDescription,
-        comparableFilterNotes: result.comparableFilterNotes,
+        cleanRetailPreAccident: valuationResult.marketcheckPricePre.toString(),
+        roughRetailPostAccident: valuationResult.postAccidentValue.toString(),
+        comparablesAvgRetail: valuationResult.avgCompPrice.toString(),
+        finalPreAccidentValue: valuationResult.finalPreAccidentValue.toString(),
+        postAccidentValue: valuationResult.postAccidentValue.toString(),
+        diminishedValue: valuationResult.diminishedValue.toString(),
+        comparablesJson: JSON.stringify(valuationResult.selectedComps),
+        mileageBandDescription: valuationResult.methodology,
+        comparableFilterNotes: valuationResult.filteringLog.join("\n"),
         calculatedAt: new Date(),
       });
 
-      res.json({ appraisal: updated, result });
+      res.json({ 
+        appraisal: updated, 
+        result: valuationResult,
+        filteringLog: valuationResult.filteringLog,
+      });
     } catch (error) {
       console.error("Georgia appraisal calculate error:", error);
       res.status(500).json({ message: "Failed to calculate appraisal" });
@@ -971,26 +954,37 @@ export async function registerRoutes(
         return res.status(400).json({ message: "Appraisal must be calculated before generating PDF" });
       }
 
-      const keyImpactAreas: DamageCode[] = appraisal.keyImpactAreas 
-        ? JSON.parse(appraisal.keyImpactAreas) 
+      const comparables = appraisal.comparablesJson 
+        ? JSON.parse(appraisal.comparablesJson) 
         : [];
 
-      const input: GeorgiaAppraisalInput = {
-        id: appraisal.id,
+      const valuationResult: ValuationResult = {
+        marketcheckPricePre: parseFloat(appraisal.cleanRetailPreAccident || "0"),
+        compPrices: comparables.map((c: any) => c.price || 0),
+        avgCompPrice: parseFloat(appraisal.comparablesAvgRetail || "0"),
+        finalPreAccidentValue: parseFloat(appraisal.finalPreAccidentValue || "0"),
+        postAccidentValue: parseFloat(appraisal.postAccidentValue || "0"),
+        diminishedValue: parseFloat(appraisal.diminishedValue || "0"),
+        selectedComps: comparables,
+        subjectVinData: null,
+        methodology: appraisal.mileageBandDescription || "",
+        filteringLog: (appraisal.comparableFilterNotes || "").split("\n"),
+      };
+
+      const pdfInput: AppraisalPdfInput = {
         ownerName: appraisal.ownerName,
         ownerAddress: appraisal.ownerAddress,
         ownerPhone: appraisal.ownerPhone,
         ownerEmail: appraisal.ownerEmail,
+        ownershipType: appraisal.isLeased === 1 ? "lessee" : "owner",
         year: appraisal.year,
         make: appraisal.make,
         model: appraisal.model,
         trim: appraisal.trim,
         vin: appraisal.vin,
+        mileage: appraisal.mileage,
         licensePlate: appraisal.licensePlate || undefined,
         stateOfRegistration: appraisal.stateOfRegistration,
-        mileage: appraisal.mileage,
-        accidentHistory: appraisal.accidentHistory as "clean" | "prior_damage" | "unknown",
-        isLeased: appraisal.isLeased === 1,
         insuranceCompany: appraisal.insuranceCompany,
         claimNumber: appraisal.claimNumber,
         adjusterName: appraisal.adjusterName || undefined,
@@ -1004,36 +998,11 @@ export async function registerRoutes(
         repairPickupDate: appraisal.repairPickupDate || undefined,
         totalRepairCost: appraisal.totalRepairCost ? parseFloat(appraisal.totalRepairCost) : undefined,
         damageDescription: appraisal.damageDescription || undefined,
-        keyImpactAreas,
-        stateOfLoss: "GA",
+        keyImpactAreas: appraisal.keyImpactAreas ? JSON.parse(appraisal.keyImpactAreas).join(", ") : undefined,
+        valuationResult,
       };
 
-      const comparables = appraisal.comparablesJson 
-        ? JSON.parse(appraisal.comparablesJson) 
-        : [];
-
-      const result = {
-        appraisalId: appraisal.id,
-        thirdParty: {
-          cleanRetailPreAccident: parseFloat(appraisal.cleanRetailPreAccident || "0"),
-          roughRetailPostAccident: parseFloat(appraisal.roughRetailPostAccident || "0"),
-          source: "MarketCheck API",
-          retrievedAt: appraisal.calculatedAt!,
-        },
-        comparables,
-        comparablesAvgRetail: parseFloat(appraisal.comparablesAvgRetail || "0"),
-        finalPreAccidentValue: parseFloat(appraisal.finalPreAccidentValue || "0"),
-        postAccidentValue: parseFloat(appraisal.postAccidentValue || "0"),
-        diminishedValue: parseFloat(appraisal.diminishedValue || "0"),
-        mileageBandDescription: appraisal.mileageBandDescription || "",
-        comparableFilterNotes: appraisal.comparableFilterNotes || "",
-        createdAt: appraisal.calculatedAt!,
-      };
-
-      const pdfBuffer = await generateAppraisalPdf({
-        appraisal: input,
-        result,
-      });
+      const pdfBuffer = await generatePlaywrightPdf(pdfInput);
 
       await storage.updateGeorgiaAppraisal(req.params.id, {
         pdfGeneratedAt: new Date(),
