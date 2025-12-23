@@ -1,0 +1,364 @@
+You are working in an existing TypeScript full-stack app with:
+
+- React 19 + Vite frontend
+- Express + Node.js backend
+- PostgreSQL + Drizzle ORM
+- Existing “diminished value appraisal” MVP that currently generates a very basic PDF
+
+I want you to UPGRADE the backend valuation logic and PDF generator to match a professional diminished value appraisal report similar to the Select Auto Appraisals example I’ve provided offline.
+
+High-level goals
+1) Implement a clear calculation pipeline that:
+   - Calls our 3rd-party valuation API (BlackBook equivalent via MarketCheck/MarketData “marketplace” API).
+   - Calls the open-market listings API for 3 retail comparables.
+   - Computes final pre-accident value and diminished value exactly as described below.
+2) Persist all inputs, intermediate values, and comparables in the database.
+3) Generate a comprehensive, multi-page PDF report with sections mirroring the professional example:
+   - Cover page
+   - Owner / vehicle / insurance info
+   - Purpose of report
+   - Georgia law + case law (Perma Ad Ideas v. Mayville) summary
+   - Repair center info
+   - Damage location / key impact areas
+   - Market research – 3rd party valuation
+   - Market research – comparables
+   - Georgia Insurance Commissioner Directive 08-P&C-2 (static text section)
+   - Results of evaluation narrative
+   - Detailed calculation table for diminished value
+   - Certification page (IACP-style language, configurable)
+
+Use clean, well-typed TypeScript and keep the code modular.
+
+========================
+1. DATA MODEL
+========================
+
+Extend or create these types/interfaces on the backend:
+
+type AccidentHistoryFlag = "clean" | "prior_damage" | "unknown";
+
+interface AppraisalInput {
+  id: string;
+  ownerName: string;
+  ownerAddress: string;
+  ownerPhone: string;
+  ownerEmail: string;
+
+  year: number;
+  make: string;
+  model: string;
+  trim: string;
+  vin: string;
+  licensePlate?: string;
+  state: string;
+  mileage: number;
+  accidentHistory: AccidentHistoryFlag; // accident status BEFORE this loss
+
+  insuranceCompany: string;
+  claimNumber: string;
+  adjusterName?: string;
+  adjusterEmail?: string;
+  adjusterPhone?: string;
+  dateOfLoss: string; // ISO string
+
+  repairCenterName?: string;
+  repairCenterPhone?: string;
+  repairCenterAddress?: string;
+  repairDropOffDate?: string;
+  repairPickupDate?: string;
+
+  damageDescription?: string; // free-form summary
+  keyImpactAreas?: string[];  // list of damaged components / panels
+
+  stateOfLoss: string; // e.g. "GA" for Georgia
+}
+
+interface ThirdPartyValuations {
+  cleanRetailPreAccident: number;  // 3rd-party “clean” retail (pre-accident)
+  roughRetailPostAccident: number; // 3rd-party “rough” / post-accident retail
+}
+
+interface ComparableListing {
+  sourceDealerName: string;
+  sourceDealerPhone?: string;
+  sourceDealerAddress?: string;
+
+  year: number;
+  make: string;
+  model: string;
+  trim: string;
+  vin: string;
+  mileage: number;
+  listedPrice: number;   // retail asking price
+  listingUrl?: string;
+
+  accidentHistory: AccidentHistoryFlag; // if available from API
+}
+
+interface AppraisalComputationResult {
+  appraisalId: string;
+
+  thirdParty: ThirdPartyValuations;
+  comparables: ComparableListing[];
+
+  comparablesAvgRetail: number;
+  finalPreAccidentValue: number;
+  postAccidentValue: number;
+  diminishedValue: number;
+
+  // metadata for transparency
+  mileageBandDescription: string;
+  comparableFilterNotes: string;
+  createdAt: Date;
+}
+
+Add or update Drizzle models/tables so that:
+- AppraisalInput is stored in an `appraisals` table.
+- AppraisalComputationResult and ComparableListing rows are stored in `appraisal_results` and `appraisal_comparables` tables (or equivalent).
+
+========================
+2. VALUATION LOGIC
+========================
+
+Create a dedicated service module, e.g. `services/appraisalValuationService.ts`, with:
+
+async function fetchThirdPartyValuations(input: AppraisalInput): Promise<ThirdPartyValuations>
+
+- Calls our MarketCheck/MarketData valuation endpoint using ENV variables:
+  - MARKET_API_BASE_URL
+  - MARKET_API_KEY
+- Sends year, make, model, trim, mileage, vin.
+- Interprets API response fields:
+  - Map “clean retail” (pre-accident) to `cleanRetailPreAccident`.
+  - Map “rough retail” or equivalent (post-accident) to `roughRetailPostAccident`.
+- If the API does not directly support a damaged vs non-damaged mode, still use the “clean” value as pre-accident and the “rough” / lower value for post-accident. For now this can be a simple mapping from the returned high vs low retail range.
+
+async function fetchMarketComparables(input: AppraisalInput): Promise<ComparableListing[]>
+
+- Calls the MarketCheck/MarketData search/listings endpoint for pre-owned vehicles.
+- Filter criteria:
+  - Same year, make, model, trim as the subject vehicle.
+  - Mileage within a reasonable band, e.g. ±20% of subject mileage (or ±5,000 miles, whichever is larger).
+  - Accident history filter:
+    - If `input.accidentHistory === "clean"`, try to filter to listings with no reported accidents.
+    - If "prior_damage", try to filter to listings with similar accident flag if available.
+    - If API does not expose this, note that in `comparableFilterNotes` but still proceed.
+- Sort results by closeness to mileage and price, then take the top 3.
+- Map each listing into ComparableListing. If fewer than 3 exist, still proceed with however many we can get and note that in `comparableFilterNotes`.
+
+function computePreAccidentValue(
+  thirdParty: ThirdPartyValuations,
+  comparables: ComparableListing[]
+): { comparablesAvgRetail: number; finalPreAccidentValue: number }
+
+- Let `comparablesAvgRetail` = average of `listedPrice` for the selected comparables.
+- Let `finalPreAccidentValue` = (thirdParty.cleanRetailPreAccident + comparablesAvgRetail) / 2.
+- Round both to the nearest whole dollar.
+
+function computeDiminishedValue(
+  preAccidentValue: number,
+  thirdParty: ThirdPartyValuations
+): { postAccidentValue: number; diminishedValue: number }
+
+- `postAccidentValue` = `thirdParty.roughRetailPostAccident`.
+- `diminishedValue` = `preAccidentValue - postAccidentValue`.
+- If the result is negative, floor at 0.
+- Round to the nearest whole dollar.
+
+async function runFullAppraisalCalculation(appraisalId: string): Promise<AppraisalComputationResult>
+
+- Load `AppraisalInput` by ID from the database.
+- Call `fetchThirdPartyValuations`.
+- Call `fetchMarketComparables`.
+- Compute:
+  - `comparablesAvgRetail` and `finalPreAccidentValue`.
+  - `postAccidentValue` and `diminishedValue`.
+- Build and persist `AppraisalComputationResult`.
+- Persist each ComparableListing row linked to this appraisal.
+- Return the full result.
+
+========================
+3. BACKEND ENDPOINTS
+========================
+
+Implement or update these Express routes:
+
+POST /api/appraisals
+- Creates an AppraisalInput record from the client’s form payload.
+- Returns { appraisalId }.
+
+POST /api/appraisals/:id/calculate
+- Calls `runFullAppraisalCalculation(appraisalId)` and returns the computation result JSON.
+- Frontend uses this to show an on-screen summary before generating the PDF.
+
+GET /api/appraisals/:id/report.pdf
+- Calls `runFullAppraisalCalculation` if results don’t exist yet.
+- Calls `generateDiminishedValuePdf(appraisalId)` (see below).
+- Sets appropriate headers and streams the PDF back to the client.
+
+========================
+4. PDF GENERATION
+========================
+
+Use a server-side PDF library like `pdfkit` or `pdf-lib` (Node friendly) to generate the multi-page report.
+
+Create `services/appraisalPdfService.ts`:
+
+async function generateDiminishedValuePdf(appraisalId: string): Promise<Buffer>
+
+Implementation details:
+
+a) Load:
+   - AppraisalInput
+   - AppraisalComputationResult
+   - Comparables for that appraisal
+
+b) Layout and sections (pages):
+
+PAGE 1 – COVER PAGE
+- Title: “DIMINISHED VALUE APPRAISAL REPORT”
+- Company name + contact block (configurable from ENV or config file):
+  - Company name
+  - Website
+  - Email
+  - Phone
+- A subtle footer showing the customer’s name and appraisal date.
+
+PAGE 2 – OWNER, VEHICLE, INSURANCE INFO
+- Three stacked sections in a grid similar to the reference PDF:
+  1) Owner Information
+     - Owner Name
+     - Address
+     - Phone Number
+     - Email Address
+  2) Vehicle Information
+     - Year
+     - Make + Model + Trim
+     - VIN
+     - License Plate
+     - State
+     - Mileage (at time of loss)
+  3) Insurance Information
+     - Insurance Company
+     - Claim Number
+     - Adjuster Name
+     - Adjuster Email
+     - Adjuster Phone
+     - Date of Loss
+
+PAGE 3 – PURPOSE OF REPORT + GEORGIA LAW SUMMARY
+- Short narrative “Purpose of Report” explaining:
+  - That the report determines any market-related diminished value to the vehicle as of the date of loss and after proper repairs.
+  - That accident history must be disclosed to buyers and impacts market price.
+- Georgia law statement (if stateOfLoss === "GA"):
+  - Summarize that Georgia courts measure damages as the difference between vehicle value before and after the collision, and that when the vehicle is repaired, recoverable damages include reasonable repair costs plus any remaining loss in value, not to exceed the pre-loss value.
+  - Cite Perma Ad Ideas of America, Inc. v. Mayville, 158 Ga. App. 707 (1981) in text but do not quote long passages.
+- For non-GA states, leave a placeholder section (to extend later).
+
+PAGE 4 – REPAIR CENTER INFORMATION & DAMAGE LOCATION
+- Repair center block:
+  - Repair Center Name
+  - Phone
+  - Address (if present)
+  - Drop-off Date
+  - Pick-up Date
+- “Damage Location / Key Impact Areas”:
+  - Bullet list of `keyImpactAreas`.
+  - If we later add images/diagrams, leave hooks (e.g., stub function to draw vehicle silhouettes and red dots). For now, simple structured text.
+
+PAGE 5 – MARKET RESEARCH ANALYSIS | THIRD-PARTY VALUATION
+- Clearly labeled section:
+  - “Third-Party Valuation (Pre-Accident – Clean Retail): $X”
+  - “Third-Party Valuation (Post-Accident – Rough Retail): $Y”
+- Optional simple graphic:
+  - Draw horizontal bars for pre vs post to visually show the difference.
+- Short explanation paragraph that these values are sourced from a respected 3rd-party valuation provider via API and represent typical retail values for similar vehicles.
+
+PAGE 6 – MARKET RESEARCH ANALYSIS | COMPARABLES (PRE-OWNED)
+- Table with one row per comparable:
+  Columns:
+  - # (1, 2, 3)
+  - Dealership Name
+  - Dealership Phone
+  - Vehicle (Year, Make, Model, Trim)
+  - Mileage
+  - VIN
+  - Marketed Retail Price
+- At the bottom of the table:
+  - “Average Retail Price of Comparables: $[comparablesAvgRetail]”
+- Include a note on selection criteria (same Y/M/M/T, similar mileage, and where possible, matching accident history status).
+
+PAGE 7 – GEORGIA INSURANCE DIRECTIVE 08-P&C-2 (STATIC SECTION)
+- Heading referencing the Georgia Office of Insurance and Safety Fire Commissioner Directive 08-P&C-2.
+- Summary bullets (not full text) explaining:
+  - The Department has not endorsed any specific formula for diminished value.
+  - Each claim must be evaluated on its own facts.
+  - Insurers should not imply that a single formula result is the definitive liability amount.
+- We can store this summary text in a local markdown or constants file for reuse.
+
+PAGE 8 – RESULTS OF EVALUATION (NARRATIVE)
+- Narrative text that:
+  - States the calculated diminished value (e.g., “The diminished value of the subject vehicle as of the completion of repairs is $X.”).
+  - Recaps factors considered: year/make/model, mileage, extent and location of damage, market conditions, 3rd-party valuation, and comparable vehicles.
+  - Explains that diminished value is the difference between the fair market value immediately before the loss and immediately after repairs are completed, and does not require the owner to actually sell the vehicle.
+
+PAGE 9 – REPORT VALUES | ESTIMATED DIMINISHED VALUE (CALCULATION TABLE)
+- Table/box clearly showing:
+  - Third-Party Valuation – Pre-Accident (Clean Retail): $[cleanRetailPreAccident]
+  - Comparables Average Retail Value: $[comparablesAvgRetail]
+  - Final Pre-Accident Value (average of the two above): $[finalPreAccidentValue]
+  - Third-Party Valuation – Post-Accident (Rough Retail): $[postAccidentValue]
+  - Total Diminished Value (Pre – Post): $[diminishedValue]
+- Under the table, add a short line:
+  - “Diminished value is calculated as the difference between the final pre-accident value and the third-party post-accident value.”
+
+PAGE 10 – CERTIFICATION PAGE
+- Configurable “certification” block using environment variables or a config object:
+  - Appraiser name
+  - Credentials (e.g., IACP, ICAR, etc.)
+  - Certification number (e.g., IACP Certification #123456789)
+- Standardized certification statements in bullet form, similar in spirit to:
+  - Facts are true and correct to the best of knowledge.
+  - Analyses and conclusions are impartial and unbiased.
+  - No contingent fee based on a predetermined value.
+  - Prepared in conformity with applicable appraisal standards.
+- Also include a disclaimer paragraph:
+  - Valuations are based on information believed reliable but not guaranteed and that final claim resolution is between the vehicle owner and the insurer.
+
+Make the PDF styling simple but professional:
+- Consistent fonts and headings across pages.
+- Section headers in bold, with red accent bar or similar brand color.
+- Page numbers in the footer (e.g., “Diminished Value Appraisal Report | [Owner Name] [page X]”).
+
+========================
+5. FRONTEND HOOKS (LIGHT TOUCH)
+========================
+
+Frontend changes can be minimal for now:
+
+- After the user completes the appraisal intake form, use:
+  - POST /api/appraisals to create the appraisal and get `appraisalId`.
+  - POST /api/appraisals/:id/calculate to run the valuation and display:
+    - Third-party pre & post values.
+    - Average of 3 comparables.
+    - Final pre-accident value.
+    - Diminished value.
+
+- Add a button: “Generate Certified Appraisal PDF”
+  - On click, hit GET /api/appraisals/:id/report.pdf.
+  - Trigger browser download or open in a new tab.
+
+========================
+6. QUALITY + TRANSPARENCY
+========================
+
+- Log all external API requests and responses (redacting keys) for traceability.
+- Include simple error handling:
+  - If comparables are fewer than 3, still compute averages and add a note to `comparableFilterNotes`.
+  - If 3rd-party valuations cannot be fetched, return a clear error message to the frontend.
+- Ensure that all values shown in the PDF can be directly traced to:
+  - The 3rd-party API response.
+  - The comparables fetched.
+  - The explicit formulas outlined above.
+
+Implement all of this now, wiring the new services into the existing Express app, and ensure the code compiles and type-checks with strict TypeScript settings enabled.
