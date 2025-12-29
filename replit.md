@@ -61,6 +61,12 @@ The platform includes a legal context service (`server/services/stateLaw.ts`) wi
 ### Valuation Engine Services
 Located in `server/services/`:
 
+**vehicleLookup.ts** - Vehicle Selection API:
+- `getVehicleMakes()` - Fetch makes for a given year via MarketCheck facets API
+- `getVehicleModels()` - Fetch models for a given year/make
+- `getVehicleTrims()` - Fetch trims for a given year/make/model
+- All functions use 24-hour in-memory TTL caching to minimize API calls
+
 **marketData.ts** - MarketCheck API Integration:
 - `decodeVin()` - VIN decoding via NeoVIN Enhanced Decoder
 - `fetchRetailComps()` - Comparable retail listings (excludes auction/wholesale)
@@ -78,7 +84,12 @@ Located in `server/services/`:
 - `generateNegotiationResponse()` - Coaching for adjuster negotiations
 
 ### API Endpoints
-New endpoints for valuation engine:
+Vehicle lookup endpoints (with 24hr caching):
+- `GET /api/vehicles/makes?year=YYYY` - Get vehicle makes for a year
+- `GET /api/vehicles/models?year=YYYY&make=XXX` - Get models for year/make
+- `GET /api/vehicles/trims?year=YYYY&make=XXX&model=YYY` - Get trims
+
+Valuation engine endpoints:
 - `POST /api/vin/decode` - Decode a VIN
 - `POST /api/comps` - Fetch comparable listings
 - `POST /api/appraisal/estimate` - Quick estimate (no AI)
