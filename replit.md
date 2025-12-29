@@ -61,13 +61,13 @@ The platform includes a legal context service (`server/services/stateLaw.ts`) wi
 ### Valuation Engine Services
 Located in `server/services/`:
 
-**vehicleLookup.ts** - Vehicle Identity API (Authoritative Source):
-- `getVehicleMakes()` - Fetch makes via NHTSA vPIC API (authoritative)
-- `getVehicleModels()` - Fetch models via NHTSA vPIC API (authoritative)
+**vehicleLookup.ts** - Vehicle Identity API (Hybrid Data Sourcing):
+- `getVehicleMakes()` - Hybrid: NHTSA vPIC (primary) + MarketCheck (fallback for EV OEMs)
+- `getVehicleModels()` - Hybrid: NHTSA vPIC (primary) + MarketCheck (fallback)
 - `getVehicleTrims()` - Fetch trims via MarketCheck facets API
 - `decodeVin()` - VIN decoding via NHTSA DecodeVinValuesExtended API
-- All functions use 24-hour in-memory TTL caching to minimize API calls
-- Data normalization with Title Case and deduplication
+- All functions use 24-hour in-memory TTL caching with merged results
+- Data normalization with Title Case, canonical spellings (VinFast, BMW, etc.), and deduplication
 
 **marketData.ts** - MarketCheck API Integration:
 - `fetchRetailComps()` - Comparable retail listings (excludes auction/wholesale)
