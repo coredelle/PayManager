@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useMutation } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -6,10 +6,124 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
 import { Card, CardContent } from "@/components/ui/card";
-import { Sparkles, ArrowRight, AlertCircle } from "lucide-react";
+import { Sparkles, ArrowRight, AlertCircle, Loader2 } from "lucide-react";
 import { Link } from "wouter";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { api } from "@/lib/api";
+
+const currentYear = new Date().getFullYear();
+const years = Array.from({ length: currentYear - 1900 + 1 }, (_, i) => currentYear - i);
+
+function PrequalVehicleSelector({
+  year,
+  make,
+  model,
+  onYearChange,
+  onMakeChange,
+  onModelChange,
+}: {
+  year: string;
+  make: string;
+  model: string;
+  onYearChange: (v: string) => void;
+  onMakeChange: (v: string) => void;
+  onModelChange: (v: string) => void;
+}) {
+  const [makes, setMakes] = useState<string[]>([]);
+  const [models, setModels] = useState<string[]>([]);
+  const [loadingMakes, setLoadingMakes] = useState(false);
+  const [loadingModels, setLoadingModels] = useState(false);
+
+  useEffect(() => {
+    if (!year) {
+      setMakes([]);
+      return;
+    }
+    setLoadingMakes(true);
+    fetch(`/api/vehicles/makes?year=${year}`)
+      .then(res => res.json())
+      .then(data => setMakes(data.makes || []))
+      .catch(() => setMakes([]))
+      .finally(() => setLoadingMakes(false));
+  }, [year]);
+
+  useEffect(() => {
+    if (!year || !make) {
+      setModels([]);
+      return;
+    }
+    setLoadingModels(true);
+    fetch(`/api/vehicles/models?year=${year}&make=${encodeURIComponent(make)}`)
+      .then(res => res.json())
+      .then(data => setModels(data.models || []))
+      .catch(() => setModels([]))
+      .finally(() => setLoadingModels(false));
+  }, [year, make]);
+
+  return (
+    <div className="space-y-4">
+      <div className="space-y-2">
+        <Label className="text-slate-300">Year</Label>
+        <Select value={year} onValueChange={onYearChange}>
+          <SelectTrigger className="bg-slate-900/50 border-slate-700 text-white focus:border-emerald-500/50 focus:ring-emerald-500/20" data-testid="prequal-select-year">
+            <SelectValue placeholder="Select Year" />
+          </SelectTrigger>
+          <SelectContent className="bg-slate-900 border-slate-800 text-white max-h-[200px]">
+            {years.map((y) => (
+              <SelectItem key={y} value={String(y)}>
+                {y}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+
+      <div className="space-y-2">
+        <Label className="text-slate-300">Make</Label>
+        <Select value={make} onValueChange={onMakeChange} disabled={!year || loadingMakes}>
+          <SelectTrigger className="bg-slate-900/50 border-slate-700 text-white focus:border-emerald-500/50 focus:ring-emerald-500/20" data-testid="prequal-select-make">
+            {loadingMakes ? (
+              <div className="flex items-center gap-2"><Loader2 className="h-4 w-4 animate-spin" /><span>Loading...</span></div>
+            ) : (
+              <SelectValue placeholder={!year ? "Select year first" : "Select Make"} />
+            )}
+          </SelectTrigger>
+          <SelectContent className="bg-slate-900 border-slate-800 text-white max-h-[200px]">
+            {makes.length === 0 ? (
+              <div className="px-2 py-1 text-sm text-slate-500">No makes available</div>
+            ) : (
+              makes.map((m) => (
+                <SelectItem key={m} value={m}>{m}</SelectItem>
+              ))
+            )}
+          </SelectContent>
+        </Select>
+      </div>
+
+      <div className="space-y-2">
+        <Label className="text-slate-300">Model</Label>
+        <Select value={model} onValueChange={onModelChange} disabled={!make || loadingModels}>
+          <SelectTrigger className="bg-slate-900/50 border-slate-700 text-white focus:border-emerald-500/50 focus:ring-emerald-500/20" data-testid="prequal-select-model">
+            {loadingModels ? (
+              <div className="flex items-center gap-2"><Loader2 className="h-4 w-4 animate-spin" /><span>Loading...</span></div>
+            ) : (
+              <SelectValue placeholder={!make ? "Select make first" : "Select Model"} />
+            )}
+          </SelectTrigger>
+          <SelectContent className="bg-slate-900 border-slate-800 text-white max-h-[200px]">
+            {models.length === 0 ? (
+              <div className="px-2 py-1 text-sm text-slate-500">No models available</div>
+            ) : (
+              models.map((m) => (
+                <SelectItem key={m} value={m}>{m}</SelectItem>
+              ))
+            )}
+          </SelectContent>
+        </Select>
+      </div>
+    </div>
+  );
+}
 
 interface PrequalModalProps {
   isOpen: boolean;
@@ -28,8 +142,6 @@ export function PrequalModal({ isOpen, onOpenChange }: PrequalModalProps) {
     state: "GA",
     fault: "",
   });
-
-  const years = Array.from({ length: 2026 - 1900 }, (_, i) => (2025 - i).toString());
 
   const estimateMutation = useMutation({
     mutationFn: api.prequal.estimate,
@@ -84,45 +196,14 @@ export function PrequalModal({ isOpen, onOpenChange }: PrequalModalProps) {
                 </SheetHeader>
 
                 <form onSubmit={handleCalculate} className="space-y-4 mt-8">
-                  <div className="space-y-2">
-                    <Label className="text-slate-300">Year</Label>
-                    <Select value={formData.year} onValueChange={(v) => setFormData({ ...formData, year: v })}>
-                      <SelectTrigger className="bg-slate-900/50 border-slate-700 text-white focus:border-emerald-500/50 focus:ring-emerald-500/20" data-testid="prequal-select-year">
-                        <SelectValue placeholder="Select Year" />
-                      </SelectTrigger>
-                      <SelectContent className="bg-slate-900 border-slate-800 text-white max-h-[200px]">
-                        {years.map((y) => (
-                          <SelectItem key={y} value={y}>
-                            {y}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label className="text-slate-300">Make</Label>
-                    <Input
-                      placeholder="e.g. Honda"
-                      className="bg-slate-900/50 border-slate-700 text-white placeholder:text-slate-600 focus:border-emerald-500/50 focus:ring-emerald-500/20"
-                      value={formData.make}
-                      onChange={(e) => setFormData({ ...formData, make: e.target.value })}
-                      required
-                      data-testid="prequal-input-make"
-                    />
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label className="text-slate-300">Model</Label>
-                    <Input
-                      placeholder="e.g. Accord Sport"
-                      className="bg-slate-900/50 border-slate-700 text-white placeholder:text-slate-600 focus:border-emerald-500/50 focus:ring-emerald-500/20"
-                      value={formData.model}
-                      onChange={(e) => setFormData({ ...formData, model: e.target.value })}
-                      required
-                      data-testid="prequal-input-model"
-                    />
-                  </div>
+                  <PrequalVehicleSelector
+                    year={formData.year}
+                    make={formData.make}
+                    model={formData.model}
+                    onYearChange={(v) => setFormData({ ...formData, year: v, make: "", model: "" })}
+                    onMakeChange={(v) => setFormData({ ...formData, make: v, model: "" })}
+                    onModelChange={(v) => setFormData({ ...formData, model: v })}
+                  />
 
                   <div className="space-y-2">
                     <Label className="text-slate-300">Current Mileage</Label>

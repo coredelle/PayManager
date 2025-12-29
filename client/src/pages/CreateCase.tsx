@@ -12,6 +12,7 @@ import { cn } from "@/lib/utils";
 import { api } from "@/lib/api";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
+import { VehicleSelector } from "@/components/VehicleSelector";
 
 const STEPS = [
   { id: 1, title: "Claim Info", icon: FileText },
@@ -352,62 +353,44 @@ export default function CreateCase() {
           )}
 
           {step === 2 && (
-            <div className="grid gap-4 md:grid-cols-2">
-              <div className="space-y-2">
-                <Label>Year</Label>
-                <Input
-                  type="number"
-                  placeholder="2022"
-                  value={formData.year}
-                  onChange={(e) => updateData("year", e.target.value)}
-                  data-testid="input-year"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label>Make</Label>
-                <Input
-                  placeholder="Honda"
-                  value={formData.make}
-                  onChange={(e) => updateData("make", e.target.value)}
-                  data-testid="input-make"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label>Model</Label>
-                <Input
-                  placeholder="Accord"
-                  value={formData.model}
-                  onChange={(e) => updateData("model", e.target.value)}
-                  data-testid="input-model"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label>Trim</Label>
-                <Input
-                  placeholder="Sport 2.0T"
-                  value={formData.trim}
-                  onChange={(e) => updateData("trim", e.target.value)}
-                  data-testid="input-trim"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label>Mileage at Loss</Label>
-                <Input
-                  type="number"
-                  placeholder="25000"
-                  value={formData.mileageAtLoss}
-                  onChange={(e) => updateData("mileageAtLoss", e.target.value)}
-                  data-testid="input-mileage"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label>VIN</Label>
-                <Input
-                  placeholder="1HG..."
-                  value={formData.vin}
-                  onChange={(e) => updateData("vin", e.target.value)}
-                  data-testid="input-vin"
-                />
+            <div className="space-y-4">
+              <VehicleSelector
+                year={formData.year}
+                make={formData.make}
+                model={formData.model}
+                onYearChange={(v) => updateData("year", v)}
+                onMakeChange={(v) => updateData("make", v)}
+                onModelChange={(v) => updateData("model", v)}
+              />
+              <div className="grid gap-4 md:grid-cols-2">
+                <div className="space-y-2">
+                  <Label>Trim (Optional)</Label>
+                  <Input
+                    placeholder="Sport 2.0T"
+                    value={formData.trim}
+                    onChange={(e) => updateData("trim", e.target.value)}
+                    data-testid="input-trim"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>Mileage at Loss</Label>
+                  <Input
+                    type="number"
+                    placeholder="25000"
+                    value={formData.mileageAtLoss}
+                    onChange={(e) => updateData("mileageAtLoss", e.target.value)}
+                    data-testid="input-mileage"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>VIN</Label>
+                  <Input
+                    placeholder="1HG..."
+                    value={formData.vin}
+                    onChange={(e) => updateData("vin", e.target.value)}
+                    data-testid="input-vin"
+                  />
+                </div>
               </div>
             </div>
           )}

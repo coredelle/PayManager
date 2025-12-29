@@ -16,6 +16,7 @@ import { generateAppraisalPdf } from "./services/appraisalPdfService";
 import { computeFullValuation, type ValuationResult } from "./services/marketcheckClient";
 import { generateAppraisalPdf as generatePlaywrightPdf, type AppraisalPdfInput } from "./services/pdfGeneratorPlaywright";
 import type { AppraisalInput as GeorgiaAppraisalInput, DamageCode } from "@shared/types/appraisal";
+import { getVehicleMakes, getVehicleModels, getVehicleTrims } from "./services/vehicleLookup";
 
 declare module "express-session" {
   interface SessionData {
@@ -224,6 +225,55 @@ export async function registerRoutes(
       email: user.email,
       name: user.name,
     });
+  });
+
+  // =====================
+  // VEHICLE LOOKUP ROUTES
+  // =====================
+
+  app.get("/api/vehicles/makes", async (req, res) => {
+    try {
+      const year = parseInt(req.query.year as string);
+      if (!year || isNaN(year)) {
+        return res.status(400).json({ message: "Valid year is required" });
+      }
+      const makes = await getVehicleMakes(year);
+      res.json({ makes });
+    } catch (error) {
+      console.error("Get vehicle makes error:", error);
+      res.status(500).json({ message: "Failed to fetch vehicle makes" });
+    }
+  });
+
+  app.get("/api/vehicles/models", async (req, res) => {
+    try {
+      const year = parseInt(req.query.year as string);
+      const make = req.query.make as string;
+      if (!year || isNaN(year) || !make) {
+        return res.status(400).json({ message: "Valid year and make are required" });
+      }
+      const models = await getVehicleModels(year, make);
+      res.json({ models });
+    } catch (error) {
+      console.error("Get vehicle models error:", error);
+      res.status(500).json({ message: "Failed to fetch vehicle models" });
+    }
+  });
+
+  app.get("/api/vehicles/trims", async (req, res) => {
+    try {
+      const year = parseInt(req.query.year as string);
+      const make = req.query.make as string;
+      const model = req.query.model as string;
+      if (!year || isNaN(year) || !make || !model) {
+        return res.status(400).json({ message: "Valid year, make, and model are required" });
+      }
+      const trims = await getVehicleTrims(year, make, model);
+      res.json({ trims });
+    } catch (error) {
+      console.error("Get vehicle trims error:", error);
+      res.status(500).json({ message: "Failed to fetch vehicle trims" });
+    }
   });
 
   // =====================

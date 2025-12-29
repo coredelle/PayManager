@@ -4,6 +4,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { ArrowLeft, ArrowRight, Car } from "lucide-react";
 import { AppraisalFormData } from "@/types/appraisal";
+import { VehicleSelector } from "@/components/VehicleSelector";
 
 interface StepVehicleProps {
   formData: AppraisalFormData;
@@ -58,62 +59,28 @@ export default function StepVehicle({ formData, updateFormData, onNext, onBack }
       </div>
 
       <div className="space-y-4 max-w-md mx-auto">
-        <div className="grid grid-cols-2 gap-4">
-          <div className="space-y-2">
-            <Label htmlFor="year">Year *</Label>
-            <Input
-              id="year"
-              type="number"
-              placeholder="2020"
-              value={formData.year}
-              onChange={(e) => updateFormData({ year: e.target.value ? parseInt(e.target.value) : "" })}
-              className={errors.year ? "border-red-500" : ""}
-              data-testid="input-year"
-            />
-            {errors.year && <p className="text-sm text-red-500">{errors.year}</p>}
-          </div>
+        <VehicleSelector
+          year={formData.year?.toString() || ""}
+          make={formData.make || ""}
+          model={formData.model || ""}
+          onYearChange={(v) => updateFormData({ year: v ? parseInt(v) : "" })}
+          onMakeChange={(v) => updateFormData({ make: v })}
+          onModelChange={(v) => updateFormData({ model: v })}
+        />
+        {(errors.year || errors.make || errors.model) && (
+          <p className="text-sm text-red-500">Please select Year, Make, and Model</p>
+        )}
 
-          <div className="space-y-2">
-            <Label htmlFor="make">Make *</Label>
-            <Input
-              id="make"
-              type="text"
-              placeholder="Toyota"
-              value={formData.make}
-              onChange={(e) => updateFormData({ make: e.target.value })}
-              className={errors.make ? "border-red-500" : ""}
-              data-testid="input-make"
-            />
-            {errors.make && <p className="text-sm text-red-500">{errors.make}</p>}
-          </div>
-        </div>
-
-        <div className="grid grid-cols-2 gap-4">
-          <div className="space-y-2">
-            <Label htmlFor="model">Model *</Label>
-            <Input
-              id="model"
-              type="text"
-              placeholder="Camry"
-              value={formData.model}
-              onChange={(e) => updateFormData({ model: e.target.value })}
-              className={errors.model ? "border-red-500" : ""}
-              data-testid="input-model"
-            />
-            {errors.model && <p className="text-sm text-red-500">{errors.model}</p>}
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="trim">Trim (Optional)</Label>
-            <Input
-              id="trim"
-              type="text"
-              placeholder="SE"
-              value={formData.trim || ""}
-              onChange={(e) => updateFormData({ trim: e.target.value })}
-              data-testid="input-trim"
-            />
-          </div>
+        <div className="space-y-2">
+          <Label htmlFor="trim">Trim (Optional)</Label>
+          <Input
+            id="trim"
+            type="text"
+            placeholder="SE"
+            value={formData.trim || ""}
+            onChange={(e) => updateFormData({ trim: e.target.value })}
+            data-testid="input-trim"
+          />
         </div>
 
         <div className="grid grid-cols-2 gap-4">

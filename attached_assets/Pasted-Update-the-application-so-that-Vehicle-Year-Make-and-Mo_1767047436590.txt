@@ -1,0 +1,120 @@
+Update the application so that Vehicle Year, Make, and Model follow a strict best-practice cascading dropdown flow everywhere they appear in the app (intake, edit, review, valuation).
+
+Order of selection must be:
+
+Year
+
+Make
+
+Model
+
+Free-text inputs for these fields should be completely removed.
+
+Frontend (React + TypeScript)
+Year Dropdown
+
+Replace the Year text input with a dropdown selector.
+
+Year options must range from 1900 through the current calendar year.
+
+The list should be generated dynamically (not hardcoded).
+
+Default state: unselected.
+
+Year selection is required before Make is enabled.
+
+Make Dropdown
+
+Replace all Make text inputs with a dropdown.
+
+Make dropdown should:
+
+Be disabled until a Year is selected
+
+Load all available vehicle manufacturers from the backend
+
+Reset if Year changes
+
+No free-text entry allowed.
+
+Model Dropdown
+
+Replace all Model text inputs with a dropdown.
+
+Model dropdown should:
+
+Be disabled until both Year and Make are selected
+
+Dynamically populate based on selected Year + Make
+
+Reset if either Year or Make changes
+
+Display a loading state while fetching models.
+
+Gracefully handle cases where no models are returned.
+
+Backend (Express API)
+
+Create or update the following endpoints:
+
+GET /api/vehicles/makes?year={year}
+
+GET /api/vehicles/models?year={year}&make={make}
+
+Data source requirements:
+
+Use the MarketCheck API as the source of truth.
+
+Do not hardcode makes or models.
+
+Normalize responses so Make and Model names exactly match MarketCheck naming conventions.
+
+Caching
+
+Cache Year → Make and Year + Make → Model responses server-side.
+
+Cache TTL: 24 hours.
+
+Avoid repeated external API calls for the same selections.
+
+UX + Validation Rules
+
+Prevent form submission unless:
+
+Year is selected
+
+Make is selected
+
+Model is selected
+
+Maintain existing styling (Tailwind + shadcn/ui).
+
+Show clear disabled states for dependent dropdowns.
+
+Reset dependent selections automatically when an upstream value changes.
+
+Global Consistency Requirement
+
+This Year → Make → Model dropdown flow must be used everywhere in the app where vehicle details appear.
+
+Do not mix dropdowns and text inputs in different screens.
+
+Ensure stored values are consistent across:
+
+Valuation logic
+
+Comparable searches
+
+Appraisal PDF generation
+
+Demand letters
+
+Explicit Constraints
+
+Do NOT use free-text inputs for Year, Make, or Model.
+
+Do NOT allow users to type arbitrary values.
+
+Do NOT maintain a custom vehicle database.
+
+Do NOT partially implement this on only one screen.

@@ -9,6 +9,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Loader2, FileText, CheckCircle, Download, Car, Shield, Scale } from "lucide-react";
+import { VehicleSelector } from "@/components/VehicleSelector";
 
 type DamageCode = 
   | "front_bumper" | "rear_bumper" | "left_front_fender" | "right_front_fender"
@@ -286,49 +287,23 @@ export default function GeorgiaAppraisalPage() {
               <CardDescription>Details about your vehicle</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <Label htmlFor="year">Year *</Label>
-                  <Input
-                    id="year"
-                    value={formData.year}
-                    onChange={(e) => updateField("year", e.target.value)}
-                    placeholder="2022"
-                    data-testid="input-year"
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="make">Make *</Label>
-                  <Input
-                    id="make"
-                    value={formData.make}
-                    onChange={(e) => updateField("make", e.target.value)}
-                    placeholder="Toyota"
-                    data-testid="input-make"
-                  />
-                </div>
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <Label htmlFor="model">Model *</Label>
-                  <Input
-                    id="model"
-                    value={formData.model}
-                    onChange={(e) => updateField("model", e.target.value)}
-                    placeholder="Camry"
-                    data-testid="input-model"
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="trim">Trim</Label>
-                  <Input
-                    id="trim"
-                    value={formData.trim}
-                    onChange={(e) => updateField("trim", e.target.value)}
-                    placeholder="XLE"
-                    data-testid="input-trim"
-                  />
-                </div>
+              <VehicleSelector
+                year={formData.year}
+                make={formData.make}
+                model={formData.model}
+                onYearChange={(v) => updateField("year", v)}
+                onMakeChange={(v) => updateField("make", v)}
+                onModelChange={(v) => updateField("model", v)}
+              />
+              <div>
+                <Label htmlFor="trim">Trim (optional)</Label>
+                <Input
+                  id="trim"
+                  value={formData.trim}
+                  onChange={(e) => updateField("trim", e.target.value)}
+                  placeholder="XLE, SE, Limited, etc."
+                  data-testid="input-trim"
+                />
               </div>
               <div>
                 <Label htmlFor="vin">VIN (17 characters) *</Label>
