@@ -63,50 +63,30 @@ export default function StepVehicle({ formData, updateFormData, onNext, onBack }
           year={formData.year?.toString() || ""}
           make={formData.make || ""}
           model={formData.model || ""}
+          trim={formData.trim || ""}
+          vin={formData.vin || ""}
           onYearChange={(v) => updateFormData({ year: v ? parseInt(v) : "" })}
           onMakeChange={(v) => updateFormData({ make: v })}
           onModelChange={(v) => updateFormData({ model: v })}
+          onTrimChange={(v) => updateFormData({ trim: v })}
+          onVinChange={(v) => updateFormData({ vin: v })}
+          showTrim={true}
+          showVin={true}
         />
         {(errors.year || errors.make || errors.model) && (
           <p className="text-sm text-red-500">Please select Year, Make, and Model</p>
         )}
 
         <div className="space-y-2">
-          <Label htmlFor="trim">Trim (Optional)</Label>
+          <Label htmlFor="mileage">Mileage (Optional)</Label>
           <Input
-            id="trim"
-            type="text"
-            placeholder="SE"
-            value={formData.trim || ""}
-            onChange={(e) => updateFormData({ trim: e.target.value })}
-            data-testid="input-trim"
+            id="mileage"
+            type="number"
+            placeholder="45000"
+            value={formData.mileage}
+            onChange={(e) => updateFormData({ mileage: e.target.value ? parseInt(e.target.value) : "" })}
+            data-testid="input-mileage"
           />
-        </div>
-
-        <div className="grid grid-cols-2 gap-4">
-          <div className="space-y-2">
-            <Label htmlFor="mileage">Mileage (Optional)</Label>
-            <Input
-              id="mileage"
-              type="number"
-              placeholder="45000"
-              value={formData.mileage}
-              onChange={(e) => updateFormData({ mileage: e.target.value ? parseInt(e.target.value) : "" })}
-              data-testid="input-mileage"
-            />
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="vin">VIN (Optional)</Label>
-            <Input
-              id="vin"
-              type="text"
-              placeholder="1HGBH41..."
-              value={formData.vin || ""}
-              onChange={(e) => updateFormData({ vin: e.target.value })}
-              data-testid="input-vin"
-            />
-          </div>
         </div>
 
         <div className="flex gap-4 pt-4">

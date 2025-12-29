@@ -358,20 +358,17 @@ export default function CreateCase() {
                 year={formData.year}
                 make={formData.make}
                 model={formData.model}
+                trim={formData.trim}
+                vin={formData.vin}
                 onYearChange={(v) => updateData("year", v)}
                 onMakeChange={(v) => updateData("make", v)}
                 onModelChange={(v) => updateData("model", v)}
+                onTrimChange={(v) => updateData("trim", v)}
+                onVinChange={(v) => updateData("vin", v)}
+                showTrim={true}
+                showVin={true}
               />
               <div className="grid gap-4 md:grid-cols-2">
-                <div className="space-y-2">
-                  <Label>Trim (Optional)</Label>
-                  <Input
-                    placeholder="Sport 2.0T"
-                    value={formData.trim}
-                    onChange={(e) => updateData("trim", e.target.value)}
-                    data-testid="input-trim"
-                  />
-                </div>
                 <div className="space-y-2">
                   <Label>Mileage at Loss</Label>
                   <Input
@@ -380,15 +377,6 @@ export default function CreateCase() {
                     value={formData.mileageAtLoss}
                     onChange={(e) => updateData("mileageAtLoss", e.target.value)}
                     data-testid="input-mileage"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label>VIN</Label>
-                  <Input
-                    placeholder="1HG..."
-                    value={formData.vin}
-                    onChange={(e) => updateData("vin", e.target.value)}
-                    data-testid="input-vin"
                   />
                 </div>
               </div>

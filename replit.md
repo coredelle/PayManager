@@ -61,14 +61,15 @@ The platform includes a legal context service (`server/services/stateLaw.ts`) wi
 ### Valuation Engine Services
 Located in `server/services/`:
 
-**vehicleLookup.ts** - Vehicle Selection API:
-- `getVehicleMakes()` - Fetch makes for a given year via MarketCheck facets API
-- `getVehicleModels()` - Fetch models for a given year/make
-- `getVehicleTrims()` - Fetch trims for a given year/make/model
+**vehicleLookup.ts** - Vehicle Identity API (Authoritative Source):
+- `getVehicleMakes()` - Fetch makes via NHTSA vPIC API (authoritative)
+- `getVehicleModels()` - Fetch models via NHTSA vPIC API (authoritative)
+- `getVehicleTrims()` - Fetch trims via MarketCheck facets API
+- `decodeVin()` - VIN decoding via NHTSA DecodeVinValuesExtended API
 - All functions use 24-hour in-memory TTL caching to minimize API calls
+- Data normalization with Title Case and deduplication
 
 **marketData.ts** - MarketCheck API Integration:
-- `decodeVin()` - VIN decoding via NeoVIN Enhanced Decoder
 - `fetchRetailComps()` - Comparable retail listings (excludes auction/wholesale)
 - `fetchMarketPricing()` - Market pricing data to replace BlackBook values
 
@@ -84,13 +85,14 @@ Located in `server/services/`:
 - `generateNegotiationResponse()` - Coaching for adjuster negotiations
 
 ### API Endpoints
-Vehicle lookup endpoints (with 24hr caching):
-- `GET /api/vehicles/makes?year=YYYY` - Get vehicle makes for a year
-- `GET /api/vehicles/models?year=YYYY&make=XXX` - Get models for year/make
-- `GET /api/vehicles/trims?year=YYYY&make=XXX&model=YYY` - Get trims
+Vehicle lookup endpoints (with 24hr caching, NHTSA-backed for makes/models):
+- `GET /api/vehicles/makes?year=YYYY` - Get vehicle makes for a year (NHTSA vPIC)
+- `GET /api/vehicles/models?year=YYYY&make=XXX` - Get models for year/make (NHTSA vPIC)
+- `GET /api/vehicles/trims?year=YYYY&make=XXX&model=YYY` - Get trims (MarketCheck)
+- `GET /api/vehicles/decode-vin?vin=XXX` - Decode VIN to year/make/model/trim (NHTSA vPIC)
 
 Valuation engine endpoints:
-- `POST /api/vin/decode` - Decode a VIN
+- `POST /api/vin/decode` - Decode a VIN (MarketCheck)
 - `POST /api/comps` - Fetch comparable listings
 - `POST /api/appraisal/estimate` - Quick estimate (no AI)
 - `POST /api/appraisal/full` - Full appraisal with AI narrative generation
@@ -101,7 +103,8 @@ Valuation engine endpoints:
 
 ### Third-Party Services
 - **OpenAI API:** For AI-powered appraisal narratives, demand letters, and negotiation coaching
-- **MarketCheck API:** For VIN decoding, comparable listings, and market pricing
+- **NHTSA vPIC API:** For vehicle makes, models, and VIN decoding (authoritative source)
+- **MarketCheck API:** For vehicle trims, comparable listings, and market pricing
 - **Stripe:** For payment processing (planned)
 
 ### Database

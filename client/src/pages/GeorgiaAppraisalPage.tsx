@@ -291,31 +291,16 @@ export default function GeorgiaAppraisalPage() {
                 year={formData.year}
                 make={formData.make}
                 model={formData.model}
+                trim={formData.trim}
+                vin={formData.vin}
                 onYearChange={(v) => updateField("year", v)}
                 onMakeChange={(v) => updateField("make", v)}
                 onModelChange={(v) => updateField("model", v)}
+                onTrimChange={(v) => updateField("trim", v)}
+                onVinChange={(v) => updateField("vin", v)}
+                showTrim={true}
+                showVin={true}
               />
-              <div>
-                <Label htmlFor="trim">Trim (optional)</Label>
-                <Input
-                  id="trim"
-                  value={formData.trim}
-                  onChange={(e) => updateField("trim", e.target.value)}
-                  placeholder="XLE, SE, Limited, etc."
-                  data-testid="input-trim"
-                />
-              </div>
-              <div>
-                <Label htmlFor="vin">VIN (17 characters) *</Label>
-                <Input
-                  id="vin"
-                  value={formData.vin}
-                  onChange={(e) => updateField("vin", e.target.value.toUpperCase())}
-                  placeholder="1HGBH41JXMN109186"
-                  maxLength={17}
-                  data-testid="input-vin"
-                />
-              </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <Label htmlFor="mileage">Mileage at Loss *</Label>

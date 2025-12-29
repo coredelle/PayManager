@@ -16,7 +16,7 @@ import { generateAppraisalPdf } from "./services/appraisalPdfService";
 import { computeFullValuation, type ValuationResult } from "./services/marketcheckClient";
 import { generateAppraisalPdf as generatePlaywrightPdf, type AppraisalPdfInput } from "./services/pdfGeneratorPlaywright";
 import type { AppraisalInput as GeorgiaAppraisalInput, DamageCode } from "@shared/types/appraisal";
-import { getVehicleMakes, getVehicleModels, getVehicleTrims } from "./services/vehicleLookup";
+import { getVehicleMakes, getVehicleModels, getVehicleTrims, decodeVin as decodeVinFromLookup } from "./services/vehicleLookup";
 
 declare module "express-session" {
   interface SessionData {
@@ -273,6 +273,20 @@ export async function registerRoutes(
     } catch (error) {
       console.error("Get vehicle trims error:", error);
       res.status(500).json({ message: "Failed to fetch vehicle trims" });
+    }
+  });
+
+  app.get("/api/vehicles/decode-vin", async (req, res) => {
+    try {
+      const vin = req.query.vin as string;
+      if (!vin || vin.length !== 17) {
+        return res.status(400).json({ message: "Valid 17-character VIN is required" });
+      }
+      const decoded = await decodeVinFromLookup(vin);
+      res.json(decoded);
+    } catch (error) {
+      console.error("Decode VIN error:", error);
+      res.status(500).json({ message: "Failed to decode VIN" });
     }
   });
 

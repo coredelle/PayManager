@@ -1,0 +1,216 @@
+Refactor the entire vehicle identification flow across the application so that Year, Make, Model, Trim, and VIN are handled through a single authoritative, best-practice vehicle identity system.
+
+This implementation must be global and consistent across all screens (intake, edit, review, valuation, appraisal generation).
+
+1. Canonical Vehicle Identity Flow
+
+The system must follow this hierarchy:
+
+VIN (if provided) → authoritative source
+
+Year → Make → Model → Trim (dropdowns)
+
+VIN is used to validate and enrich, not override silently
+
+The system must support both:
+
+VIN-first users
+
+Dropdown-first users
+
+2. Frontend Requirements (React + TypeScript)
+Year
+
+Dropdown selector only
+
+Range: 1900 → current year
+
+Dynamically generated
+
+Required field
+
+Make
+
+Dropdown selector only
+
+Disabled until Year is selected
+
+Required field
+
+Model
+
+Dropdown selector only
+
+Disabled until Year + Make are selected
+
+Required field
+
+Trim
+
+Dropdown selector
+
+Disabled until Year + Make + Model are selected
+
+Optional but recommended
+
+Populated dynamically
+
+VIN
+
+Optional text input (17 characters)
+
+When VIN is entered:
+
+Decode VIN
+
+Compare decoded Year/Make/Model/Trim with selected values
+
+If mismatch, show a non-blocking reconciliation prompt:
+
+“We found vehicle details from your VIN. Would you like to apply them?”
+
+User must explicitly confirm before overwriting dropdown selections
+
+3. Backend API Architecture (Express)
+Authoritative Data Sources
+Data	Source
+Year list	Frontend generated
+Make	NHTSA vPIC API
+Model	NHTSA vPIC API
+Trim	MarketCheck API
+VIN Decode	NHTSA vPIC API
+Valuation / Comps	MarketCheck API
+Required Endpoints
+Makes
+GET /api/vehicles/makes?year={year}
+
+
+Source:
+
+https://vpic.nhtsa.dot.gov/api/vehicles/GetMakesForVehicleModelYear/{year}?format=json
+
+
+Returns:
+
+string[]
+
+Models
+GET /api/vehicles/models?year={year}&make={make}
+
+
+Source:
+
+https://vpic.nhtsa.dot.gov/api/vehicles/GetModelsForMakeYear/make/{make}/modelyear/{year}?format=json
+
+
+Returns:
+
+string[]
+
+Trims
+GET /api/vehicles/trims?year={year}&make={make}&model={model}
+
+
+Source:
+
+MarketCheck listings or trim endpoint
+
+Normalize trims to unique values
+
+Returns:
+
+string[]
+
+VIN Decode
+GET /api/vehicles/decode-vin?vin={vin}
+
+
+Source:
+
+https://vpic.nhtsa.dot.gov/api/vehicles/DecodeVinValuesExtended/{vin}?format=json
+
+
+Returns normalized:
+
+{
+  year?: number
+  make?: string
+  model?: string
+  trim?: string
+}
+
+4. Caching Strategy
+
+Cache all vehicle metadata server-side
+
+TTL: 24 hours
+
+Cache keys:
+
+year:{year}:makes
+
+year:{year}:make:{make}:models
+
+year:{year}:make:{make}:model:{model}:trims
+
+vin:{vin}
+
+5. Data Normalization Rules
+
+Title Case for Make / Model / Trim
+
+Deduplicate all dropdown values
+
+Strip special characters inconsistently returned by APIs
+
+Ensure stored values match what is used in:
+
+Valuation
+
+Comparable searches
+
+Appraisal PDFs
+
+Demand letters
+
+6. UX + Validation Rules
+
+Disable downstream dropdowns until prerequisites are selected
+
+Reset dependent fields when upstream values change
+
+Prevent form submission unless:
+
+Year, Make, Model are selected
+
+Show loading states and graceful error messages
+
+No silent failures
+
+7. Explicit Constraints (DO NOT VIOLATE)
+
+Do NOT allow free-text entry for Year, Make, Model, or Trim
+
+Do NOT hardcode vehicle data
+
+Do NOT use MarketCheck for Make or Model lists
+
+Do NOT auto-override user selections from VIN without confirmation
+
+Do NOT implement partially — this must be global
+
+8. Definition of Done
+
+Make dropdown loads successfully (no manufacturer error)
+
+Model dropdown narrows correctly
+
+VIN reconciliation works both directions
+
+Stored vehicle identity is consistent across the app
+
+Appraisal PDFs use the normalized vehicle identity
+
+No duplicate logic across screens
+
+This task should be completed as a single cohesive refactor, not incremental fixes.
