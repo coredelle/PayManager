@@ -18,9 +18,11 @@ import { getSystemPromptForState, getStateLaw, getCaseLawSummary, getNegotiation
 import { type DVResult } from "./appraisalEngine";
 import { type CompVehicle, type DecodedVin } from "./marketData";
 
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-});
+// TODO: Uncomment when OPENAI_API_KEY is available
+// const openai = new OpenAI({
+//   apiKey: process.env.OPENAI_API_KEY,
+// });
+const openai = null as any; // Placeholder
 
 export interface AppraisalData {
   claimantName?: string;

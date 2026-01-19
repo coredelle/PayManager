@@ -9,7 +9,7 @@ import { randomBytes } from "crypto";
 import { decodeVin, fetchRetailComps, fetchMarketPricing, getFullVehicleData } from "./services/marketData";
 import { computeDVAmount, quickEstimate, type AppraisalInput } from "./services/appraisalEngine";
 import { getStateLaw } from "./services/stateLaw";
-import { generateAppraisalNarrative, generateDemandLetter, generateNegotiationResponse } from "./services/aiNarratives";
+// import { generateAppraisalNarrative, generateDemandLetter, generateNegotiationResponse } from "./services/aiNarratives";
 import { sendPasswordResetEmail } from "./services/email";
 import { runFullAppraisalCalculation } from "./services/appraisalValuationService";
 import { generateAppraisalPdf } from "./services/appraisalPdfService";
@@ -623,37 +623,40 @@ export async function registerRoutes(
       
       const dvResult = computeDVAmount(pricing, compsResult.comps, input, vinData || undefined);
       
-      const narrative = await generateAppraisalNarrative({
-        claimantName: undefined,
-        vehicleYear: caseData.year,
-        vehicleMake: caseData.make,
-        vehicleModel: caseData.model,
-        vehicleTrim: caseData.trim || undefined,
-        vin: caseData.vin || undefined,
-        mileage: caseData.mileageAtLoss || 0,
-        state: caseData.state as "GA" | "FL" | "NC",
-        dateOfLoss: caseData.dateOfLoss || undefined,
-        repairCost: parseFloat(caseData.totalRepairCost?.toString() || "0"),
-        insurerName: caseData.atFaultInsurerName || undefined,
-        claimNumber: caseData.claimNumber || undefined,
-        dvResult,
-        vinData: vinData || undefined,
-      }, compsResult.comps);
+      // TODO: Uncomment when OPENAI_API_KEY is available
+      // const narrative = await generateAppraisalNarrative({
+      //   claimantName: undefined,
+      //   vehicleYear: caseData.year,
+      //   vehicleMake: caseData.make,
+      //   vehicleModel: caseData.model,
+      //   vehicleTrim: caseData.trim || undefined,
+      //   vin: caseData.vin || undefined,
+      //   mileage: caseData.mileageAtLoss || 0,
+      //   state: caseData.state as "GA" | "FL" | "NC",
+      //   dateOfLoss: caseData.dateOfLoss || undefined,
+      //   repairCost: parseFloat(caseData.totalRepairCost?.toString() || "0"),
+      //   insurerName: caseData.atFaultInsurerName || undefined,
+      //   claimNumber: caseData.claimNumber || undefined,
+      //   dvResult,
+      //   vinData: vinData || undefined,
+      // }, compsResult.comps);
+      const narrative = "[AI narrative disabled - add OPENAI_API_KEY to enable]";
       
-      const demandLetter = await generateDemandLetter({
-        vehicleYear: caseData.year,
-        vehicleMake: caseData.make,
-        vehicleModel: caseData.model,
-        vehicleTrim: caseData.trim || undefined,
-        vin: caseData.vin || undefined,
-        mileage: caseData.mileageAtLoss || 0,
-        state: caseData.state as "GA" | "FL" | "NC",
-        dateOfLoss: caseData.dateOfLoss || undefined,
-        repairCost: parseFloat(caseData.totalRepairCost?.toString() || "0"),
-        insurerName: caseData.atFaultInsurerName || undefined,
-        claimNumber: caseData.claimNumber || undefined,
-        dvResult,
-      });
+      // const demandLetter = await generateDemandLetter({
+      //   vehicleYear: caseData.year,
+      //   vehicleMake: caseData.make,
+      //   vehicleModel: caseData.model,
+      //   vehicleTrim: caseData.trim || undefined,
+      //   vin: caseData.vin || undefined,
+      //   mileage: caseData.mileageAtLoss || 0,
+      //   state: caseData.state as "GA" | "FL" | "NC",
+      //   dateOfLoss: caseData.dateOfLoss || undefined,
+      //   repairCost: parseFloat(caseData.totalRepairCost?.toString() || "0"),
+      //   insurerName: caseData.atFaultInsurerName || undefined,
+      //   claimNumber: caseData.claimNumber || undefined,
+      //   dvResult,
+      // });
+      const demandLetter = "[AI demand letter disabled - add OPENAI_API_KEY to enable]";
       
       const compMedianPrice = compsResult.comps.length > 0
         ? compsResult.comps.map((c: any) => c.price).sort((a: number, b: number) => a - b)[Math.floor(compsResult.comps.length / 2)]
