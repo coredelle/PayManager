@@ -57,9 +57,10 @@ export default function CreateCase() {
   const [valuationError, setValuationError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!authLoading && !isAuthenticated) {
-      setLocation("/auth");
-    }
+    // TODO: Re-enable auth check after testing
+    // if (!authLoading && !isAuthenticated) {
+    //   setLocation("/auth");
+    // }
   }, [authLoading, isAuthenticated, setLocation]);
 
   const updateData = (key: string, value: any) => {

@@ -18,15 +18,16 @@ export default function ValuationResult() {
   const { isAuthenticated, isLoading: authLoading } = useAuth();
 
   useEffect(() => {
-    if (!authLoading && !isAuthenticated) {
-      setLocation("/auth");
-    }
+    // TODO: Re-enable auth check after testing
+    // if (!authLoading && !isAuthenticated) {
+    //   setLocation("/auth");
+    // }
   }, [authLoading, isAuthenticated, setLocation]);
 
   const { data: caseData, isLoading } = useQuery({
     queryKey: ["case", params.id],
     queryFn: () => api.cases.get(params.id!),
-    enabled: !!params.id && isAuthenticated,
+    enabled: !!params.id, // TODO: Add back && isAuthenticated
   });
 
   const [messages, setMessages] = useState([
