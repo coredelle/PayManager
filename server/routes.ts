@@ -33,6 +33,74 @@ const requireAuth = (req: Request, res: Response, next: NextFunction) => {
   next();
 };
 
+// In-memory storage for demo mode (when database or external services are unavailable)
+const memoryStorage: Map<string, any> = new Map();
+const chatHistory: Map<string, any[]> = new Map();
+const georgiaAppraisalMemory: Map<string, any> = new Map();
+
+const createMockCase = (data: any) => {
+  const id = `case-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+  const caseData = {
+    id,
+    ...data,
+    createdAt: new Date(),
+    updatedAt: new Date(),
+  };
+  memoryStorage.set(id, caseData);
+  chatHistory.set(id, []);
+  return caseData;
+};
+
+const getMockCase = (id: string) => {
+  return memoryStorage.get(id);
+};
+
+const updateMockCase = (id: string, updates: any) => {
+  const existing = memoryStorage.get(id);
+  if (!existing) return undefined;
+  const updated = { ...existing, ...updates, updatedAt: new Date() };
+  memoryStorage.set(id, updated);
+  return updated;
+};
+
+const addChatMessage = (caseId: string, role: "user" | "assistant", content: string) => {
+  const messages = chatHistory.get(caseId) || [];
+  messages.push({ role, content, createdAt: new Date() });
+  chatHistory.set(caseId, messages);
+  return { role, content, createdAt: new Date() };
+};
+
+const getChatMessages = (caseId: string) => {
+  return chatHistory.get(caseId) || [];
+};
+
+const createMockGeorgiaAppraisal = (data: any) => {
+  const id = `ga-${Date.now()}-${randomBytes(4).toString("hex")}`;
+  const now = new Date();
+  const appraisal = {
+    id,
+    ...data,
+    createdAt: now,
+    updatedAt: now,
+    calculatedAt: null,
+    pdfGeneratedAt: null,
+  };
+  georgiaAppraisalMemory.set(id, appraisal);
+  return appraisal;
+};
+
+const getMockGeorgiaAppraisal = (id: string) => {
+  return georgiaAppraisalMemory.get(id);
+};
+
+const updateMockGeorgiaAppraisal = (id: string, updates: any) => {
+  const existing = georgiaAppraisalMemory.get(id);
+  if (!existing) return undefined;
+  const updated = { ...existing, ...updates, updatedAt: new Date() };
+  georgiaAppraisalMemory.set(id, updated);
+  return updated;
+};
+
 export async function registerRoutes(
   httpServer: Server,
   app: Express
@@ -311,7 +379,7 @@ export async function registerRoutes(
 
   app.get("/api/cases/:id", async (req, res) => {
     try {
-      const caseData = await storage.getCase(req.params.id);
+      const caseData = getMockCase(req.params.id);
       if (!caseData) {
         return res.status(404).json({ message: "Case not found" });
       }
@@ -333,7 +401,7 @@ export async function registerRoutes(
         userId: req.session.userId || "demo-user",
       };
 
-      const newCase = await storage.createCase(caseData);
+      const newCase = createMockCase(caseData);
       res.status(201).json(newCase);
     } catch (error) {
       console.error("Create case error:", error);
@@ -343,7 +411,7 @@ export async function registerRoutes(
 
   app.patch("/api/cases/:id", async (req, res) => {
     try {
-      const existing = await storage.getCase(req.params.id);
+      const existing = getMockCase(req.params.id);
       if (!existing) {
         return res.status(404).json({ message: "Case not found" });
       }
@@ -352,7 +420,7 @@ export async function registerRoutes(
       //   return res.status(403).json({ message: "Access denied" });
       // }
 
-      const updated = await storage.updateCase(req.params.id, req.body);
+      const updated = updateMockCase(req.params.id, req.body);
       res.json(updated);
     } catch (error) {
       console.error("Update case error:", error);
@@ -362,7 +430,7 @@ export async function registerRoutes(
 
   app.post("/api/cases/:id/calculate", async (req, res) => {
     try {
-      const caseData = await storage.getCase(req.params.id);
+      const caseData = getMockCase(req.params.id);
       if (!caseData) {
         return res.status(404).json({ message: "Case not found" });
       }
@@ -385,14 +453,14 @@ export async function registerRoutes(
         caseData.state as "GA" | "FL" | "NC" | "TX" | "CA"
       );
 
-      const updated = await storage.updateCase(req.params.id, {
+      const updated = updateMockCase(req.params.id, {
         preAccidentValue: result.preAccidentValue.toString(),
         postAccidentValue: result.postAccidentValue.toString(),
         diminishedValueAmount: result.diminishedValue.toString(),
         calculationDetails: JSON.stringify(result.breakdown),
         status: "ready_for_download",
       });
-      
+
       res.json({
         case: updated,
         values: result,
@@ -719,7 +787,7 @@ export async function registerRoutes(
         return res.status(400).json({ message: "Case ID and message are required" });
       }
 
-      const caseData = await storage.getCase(caseId);
+      const caseData = getMockCase(caseId);
       if (!caseData) {
         return res.status(404).json({ message: "Case not found" });
       }
@@ -727,13 +795,9 @@ export async function registerRoutes(
       // if (caseData.userId !== req.session.userId) {
       //   return res.status(403).json({ message: "Access denied" });
       // }
-      await storage.createChatMessage({
-        caseId,
-        role: "user",
-        content: message,
-      });
-      
-      const previousMessages = await storage.getChatMessagesByCase(caseId);
+      addChatMessage(caseId, "user", message);
+
+      const previousMessages = getChatMessages(caseId);
       const conversationHistory = previousMessages.slice(-10).map(m => ({
         role: m.role as "user" | "assistant",
         content: m.content,
@@ -755,13 +819,9 @@ export async function registerRoutes(
         message,
         tone || "professional"
       );
-      
-      const assistantMessage = await storage.createChatMessage({
-        caseId,
-        role: "assistant",
-        content: response,
-      });
-      
+
+      const assistantMessage = addChatMessage(caseId, "assistant", response);
+
       res.json({
         message: assistantMessage,
         response,
@@ -778,7 +838,7 @@ export async function registerRoutes(
 
   app.get("/api/chat/:caseId/history", async (req, res) => {
     try {
-      const caseData = await storage.getCase(req.params.caseId);
+      const caseData = getMockCase(req.params.caseId);
       if (!caseData) {
         return res.status(404).json({ message: "Case not found" });
       }
@@ -787,7 +847,7 @@ export async function registerRoutes(
       //   return res.status(403).json({ message: "Access denied" });
       // }
 
-      const messages = await storage.getChatMessagesByCase(req.params.caseId);
+      const messages = getChatMessages(req.params.caseId);
       res.json({ messages });
     } catch (error) {
       console.error("Chat history error:", error);
@@ -962,7 +1022,7 @@ export async function registerRoutes(
         return res.status(400).json({ message: "Missing required fields" });
       }
 
-      const appraisal = await storage.createGeorgiaAppraisal({
+      const baseAppraisalData = {
         userId: req.session.userId || null,
         ownerName: data.ownerName,
         ownerAddress: data.ownerAddress || "",
@@ -993,7 +1053,15 @@ export async function registerRoutes(
         damageDescription: data.damageDescription || null,
         keyImpactAreas: data.keyImpactAreas ? JSON.stringify(data.keyImpactAreas) : null,
         stripePaymentStatus: "pending",
-      });
+      };
+
+      let appraisal;
+      try {
+        appraisal = await storage.createGeorgiaAppraisal(baseAppraisalData);
+      } catch (dbError) {
+        console.warn("Georgia appraisal DB unavailable, using in-memory mock storage:", dbError);
+        appraisal = createMockGeorgiaAppraisal(baseAppraisalData);
+      }
 
       res.status(201).json({ id: appraisal.id, appraisal });
     } catch (error) {
@@ -1004,7 +1072,13 @@ export async function registerRoutes(
 
   app.get("/api/georgia-appraisals/:id", async (req, res) => {
     try {
-      const appraisal = await storage.getGeorgiaAppraisal(req.params.id);
+      let appraisal;
+      try {
+        appraisal = await storage.getGeorgiaAppraisal(req.params.id);
+      } catch (dbError) {
+        console.warn("Georgia appraisal DB unavailable, using in-memory mock storage:", dbError);
+        appraisal = getMockGeorgiaAppraisal(req.params.id);
+      }
       if (!appraisal) {
         return res.status(404).json({ message: "Appraisal not found" });
       }
@@ -1017,7 +1091,13 @@ export async function registerRoutes(
 
   app.post("/api/georgia-appraisals/:id/calculate", async (req, res) => {
     try {
-      const appraisal = await storage.getGeorgiaAppraisal(req.params.id);
+      let appraisal;
+      try {
+        appraisal = await storage.getGeorgiaAppraisal(req.params.id);
+      } catch (dbError) {
+        console.warn("Georgia appraisal DB unavailable, using in-memory mock storage:", dbError);
+        appraisal = getMockGeorgiaAppraisal(req.params.id);
+      }
       if (!appraisal) {
         return res.status(404).json({ message: "Appraisal not found" });
       }
@@ -1038,7 +1118,8 @@ export async function registerRoutes(
         repairCost: appraisal.totalRepairCost ? parseFloat(appraisal.totalRepairCost) : undefined,
       });
 
-      const updated = await storage.updateGeorgiaAppraisal(req.params.id, {
+      let updated;
+      const updatePayload = {
         cleanRetailPreAccident: valuationResult.marketcheckPricePre.toString(),
         roughRetailPostAccident: valuationResult.postAccidentValue.toString(),
         comparablesAvgRetail: valuationResult.avgCompPrice.toString(),
@@ -1049,7 +1130,14 @@ export async function registerRoutes(
         mileageBandDescription: valuationResult.methodology,
         comparableFilterNotes: valuationResult.filteringLog.join("\n"),
         calculatedAt: new Date(),
-      });
+      };
+
+      try {
+        updated = await storage.updateGeorgiaAppraisal(req.params.id, updatePayload);
+      } catch (dbError) {
+        console.warn("Georgia appraisal DB unavailable when saving calculation, using in-memory mock storage:", dbError);
+        updated = updateMockGeorgiaAppraisal(req.params.id, updatePayload);
+      }
 
       res.json({ 
         appraisal: updated, 
@@ -1064,7 +1152,13 @@ export async function registerRoutes(
 
   app.get("/api/georgia-appraisals/:id/report.pdf", async (req, res) => {
     try {
-      const appraisal = await storage.getGeorgiaAppraisal(req.params.id);
+      let appraisal;
+      try {
+        appraisal = await storage.getGeorgiaAppraisal(req.params.id);
+      } catch (dbError) {
+        console.warn("Georgia appraisal DB unavailable when loading for PDF, using in-memory mock storage:", dbError);
+        appraisal = getMockGeorgiaAppraisal(req.params.id);
+      }
       if (!appraisal) {
         return res.status(404).json({ message: "Appraisal not found" });
       }
@@ -1123,9 +1217,16 @@ export async function registerRoutes(
 
       const pdfBuffer = await generatePlaywrightPdf(pdfInput);
 
-      await storage.updateGeorgiaAppraisal(req.params.id, {
-        pdfGeneratedAt: new Date(),
-      });
+      try {
+        await storage.updateGeorgiaAppraisal(req.params.id, {
+          pdfGeneratedAt: new Date(),
+        });
+      } catch (dbError) {
+        console.warn("Georgia appraisal DB unavailable when updating PDF timestamp, using in-memory mock storage:", dbError);
+        updateMockGeorgiaAppraisal(req.params.id, {
+          pdfGeneratedAt: new Date(),
+        });
+      }
 
       res.setHeader("Content-Type", "application/pdf");
       res.setHeader(

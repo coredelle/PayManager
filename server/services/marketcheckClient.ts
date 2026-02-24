@@ -65,6 +65,92 @@ export interface ValuationResult {
   filteringLog: string[];
 }
 
+function computeMockValuation(params: {
+  vin: string;
+  miles: number;
+  year: number;
+  make: string;
+  model: string;
+  trim?: string;
+  zip?: string;
+  repairCost?: number;
+}): ValuationResult {
+  const currentYear = new Date().getFullYear();
+  const age = Math.max(0, currentYear - params.year);
+
+  let basePrice = 35000;
+  if (age > 12) basePrice = 10000;
+  else if (age > 10) basePrice = 13000;
+  else if (age > 7) basePrice = 17000;
+  else if (age > 5) basePrice = 22000;
+  else if (age > 3) basePrice = 28000;
+
+  if (params.miles > 120000) basePrice *= 0.6;
+  else if (params.miles > 90000) basePrice *= 0.7;
+  else if (params.miles > 70000) basePrice *= 0.8;
+  else if (params.miles > 50000) basePrice *= 0.9;
+  else if (params.miles < 20000) basePrice *= 1.05;
+
+  const marketcheckPricePre = Math.round(basePrice);
+
+  const comp1 = Math.round(marketcheckPricePre * 0.95);
+  const comp2 = Math.round(marketcheckPricePre * 1.0);
+  const comp3 = Math.round(marketcheckPricePre * 1.05);
+  const compPrices = [comp1, comp2, comp3];
+  const avgCompPrice = Math.round(
+    (comp1 + comp2 + comp3) / 3
+  );
+
+  const finalPreAccidentValue = Math.round(
+    (marketcheckPricePre + avgCompPrice) / 2
+  );
+
+  const postAccidentValue = Math.round(marketcheckPricePre * POST_ACCIDENT_FACTOR);
+  const diminishedValue = Math.max(0, finalPreAccidentValue - postAccidentValue);
+
+  const selectedComps: ComparableListing[] = compPrices.map((price, index) => ({
+    vin: `${params.vin || "MOCKVIN"}-C${index + 1}`,
+    year: params.year,
+    make: params.make,
+    model: params.model,
+    trim: params.trim || null,
+    mileage: params.miles,
+    price,
+    dealerName: "Mock Dealer",
+    dealerPhone: null,
+    dealerCity: "Atlanta",
+    dealerState: "GA",
+    listingUrl: null,
+    distanceFromSubject: null,
+  }));
+
+  const filteringLog: string[] = [
+    "Using mock MarketCheck valuation because MARKETCHECK_API_KEY is not configured.",
+    `Base price derived from year ${params.year} and ${params.miles.toLocaleString()} miles.`,
+    `Generated 3 synthetic comparable vehicles around $${marketcheckPricePre.toLocaleString()}.`,
+  ];
+
+  const methodology = [
+    "Mock valuation for development/testing:",
+    "- Pre-accident value based on age and mileage heuristics.",
+    "- Three synthetic comparable retail listings generated around the heuristic value.",
+    `- Post-accident value computed as MarketCheck price × POST_ACCIDENT_FACTOR (${POST_ACCIDENT_FACTOR}).`,
+  ].join("\n");
+
+  return {
+    marketcheckPricePre,
+    compPrices,
+    avgCompPrice,
+    finalPreAccidentValue,
+    postAccidentValue,
+    diminishedValue,
+    selectedComps,
+    subjectVinData: null,
+    methodology,
+    filteringLog,
+  };
+}
+
 async function apiRequest<T>(
   endpoint: string, 
   params: Record<string, any> = {},
@@ -390,6 +476,10 @@ export async function computeFullValuation(params: {
   zip?: string;
   repairCost?: number;
 }): Promise<ValuationResult> {
+  if (!process.env.MARKETCHECK_API_KEY) {
+    return computeMockValuation(params);
+  }
+
   const filteringLog: string[] = [];
   filteringLog.push(`Starting valuation for VIN: ${params.vin}`);
   filteringLog.push(`Vehicle: ${params.year} ${params.make} ${params.model} ${params.trim || ""}`);
