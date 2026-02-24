@@ -52,42 +52,42 @@ function getStateContext(state: string): { law: string; citation: string; tone: 
 
   if (state === "GA") {
     return {
-      law: lawInfo.summary,
+      law: lawInfo.dvMeasure,
       citation: "State Farm v. Mabry, 184 Ga. App. 344",
       tone: "Georgia prohibits the use of the 17(c) formula and requires data-driven calculations like ours.",
     };
   }
   if (state === "FL") {
     return {
-      law: lawInfo.summary,
+      law: lawInfo.dvMeasure,
       citation: "Florida at-fault principles",
       tone: "Under Florida tort law, the at-fault party's insurer is liable for DV claims.",
     };
   }
   if (state === "NC") {
     return {
-      law: lawInfo.summary,
+      law: lawInfo.dvMeasure,
       citation: "North Carolina contributory negligence",
       tone: "North Carolina recognizes DV claims under pure negligence principles.",
     };
   }
   if (state === "TX") {
     return {
-      law: lawInfo.summary,
+      law: lawInfo.dvMeasure,
       citation: "Texas Civil Practice & Remedies Code",
       tone: "Texas recognizes diminished value claims for at-fault parties' insurers.",
     };
   }
   if (state === "CA") {
     return {
-      law: lawInfo.summary,
+      law: lawInfo.dvMeasure,
       citation: "California Civil Code, Keeton & Widiss",
       tone: "California courts recognize diminished value as a damages component under tort law.",
     };
   }
 
   return {
-    law: lawInfo.summary,
+    law: lawInfo.dvMeasure,
     citation: "State law",
     tone: "Based on your state law, diminished value claims are legally grounded.",
   };

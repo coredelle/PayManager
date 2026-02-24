@@ -806,14 +806,14 @@ export async function registerRoutes(
       const user = await storage.getUser(caseData.userId);
 
       const pdfBuffer = generateDemandLetterPdf({
-        claimantName: user?.name || caseData.ownerName || "Claimant",
+        claimantName: user?.name || "Claimant",
         claimantEmail: user?.email,
         insurerName: caseData.atFaultInsurerName || "Insurance Company",
         claimNumber: caseData.claimNumber || "Pending",
         vehicleYear: caseData.year,
         vehicleMake: caseData.make,
         vehicleModel: caseData.model,
-        vehicleVin: caseData.vin,
+        vehicleVin: caseData.vin || undefined,
         dateOfLoss: caseData.dateOfLoss || new Date().toLocaleDateString(),
         repairCost: parseFloat(caseData.totalRepairCost?.toString() || "0"),
         dvAmount: parseFloat(caseData.diminishedValueAmount?.toString() || "0"),

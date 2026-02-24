@@ -45,8 +45,8 @@ export default function ValuationResult() {
 
     try {
       // Call the API for intelligent mock responses
-      const result = await api.chat.negotiate(params.id!, text);
-      setMessages((curr) => [...curr, { role: "assistant", text: result }]);
+      const result = await api.chat.sendMessage(params.id!, text);
+      setMessages((curr) => [...curr, { role: "assistant", text: result.response }]);
     } catch (error) {
       console.error("Chat error:", error);
       // Fallback to client-side response if API fails
