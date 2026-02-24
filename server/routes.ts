@@ -10,7 +10,9 @@ import { decodeVin, fetchRetailComps, fetchMarketPricing, getFullVehicleData } f
 import { computeDVAmount, quickEstimate, type AppraisalInput } from "./services/appraisalEngine";
 import { getStateLaw } from "./services/stateLaw";
 // import { generateAppraisalNarrative, generateDemandLetter, generateNegotiationResponse } from "./services/aiNarratives";
+import { generateMockNegotiationResponse } from "./services/aiMockResponses";
 import { sendPasswordResetEmail } from "./services/email";
+import { generateDemandLetterPdf } from "./services/demandLetterPdfService";
 import { runFullAppraisalCalculation } from "./services/appraisalValuationService";
 import { generateAppraisalPdf } from "./services/appraisalPdfService";
 import { computeFullValuation, type ValuationResult } from "./services/marketcheckClient";
@@ -730,11 +732,11 @@ export async function registerRoutes(
         role: m.role as "user" | "assistant",
         content: m.content,
       }));
-      
-      const response = await generateNegotiationResponse(
+
+      const response = await generateMockNegotiationResponse(
         {
           caseId,
-          state: caseData.state as "GA" | "FL" | "NC",
+          state: caseData.state as "GA" | "FL" | "NC" | "TX" | "CA",
           vehicleYear: caseData.year,
           vehicleMake: caseData.make,
           vehicleModel: caseData.model,
@@ -783,6 +785,48 @@ export async function registerRoutes(
     } catch (error) {
       console.error("Chat history error:", error);
       res.status(500).json({ message: "Failed to fetch chat history" });
+    }
+  });
+
+  // =====================
+  // DEMAND LETTER ROUTE
+  // =====================
+
+  app.get("/api/cases/:id/demand-letter.pdf", requireAuth, async (req, res) => {
+    try {
+      const caseData = await storage.getCase(req.params.id);
+      if (!caseData) {
+        return res.status(404).json({ message: "Case not found" });
+      }
+      if (caseData.userId !== req.session.userId) {
+        return res.status(403).json({ message: "Access denied" });
+      }
+
+      // Get user info for claimant name
+      const user = await storage.getUser(caseData.userId);
+
+      const pdfBuffer = generateDemandLetterPdf({
+        claimantName: user?.name || caseData.ownerName || "Claimant",
+        claimantEmail: user?.email,
+        insurerName: caseData.atFaultInsurerName || "Insurance Company",
+        claimNumber: caseData.claimNumber || "Pending",
+        vehicleYear: caseData.year,
+        vehicleMake: caseData.make,
+        vehicleModel: caseData.model,
+        vehicleVin: caseData.vin,
+        dateOfLoss: caseData.dateOfLoss || new Date().toLocaleDateString(),
+        repairCost: parseFloat(caseData.totalRepairCost?.toString() || "0"),
+        dvAmount: parseFloat(caseData.diminishedValueAmount?.toString() || "0"),
+        preAccidentValue: parseFloat(caseData.preAccidentValue?.toString() || "0"),
+        state: (caseData.state as "GA" | "FL" | "NC" | "TX" | "CA") || "GA",
+      });
+
+      res.contentType("application/pdf");
+      res.setHeader("Content-Disposition", `attachment; filename="demand-letter-${req.params.id}.pdf"`);
+      res.send(pdfBuffer);
+    } catch (error) {
+      console.error("Demand letter generation error:", error);
+      res.status(500).json({ message: "Failed to generate demand letter" });
     }
   });
 

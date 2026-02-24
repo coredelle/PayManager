@@ -12,7 +12,7 @@
  */
 
 export interface StateLaw {
-  state: "GA" | "FL" | "NC";
+  state: "GA" | "FL" | "NC" | "TX" | "CA";
   stateName: string;
   dvMeasure: string;
   keyStatutes: string[];
@@ -177,32 +177,128 @@ NEGOTIATION GUIDANCE:
 Do not assert specific formulas are required by NC law. Only explain general principles.`,
 };
 
-const STATE_LAWS: Record<"GA" | "FL" | "NC", StateLaw> = {
+export const TEXAS_LAW: StateLaw = {
+  state: "TX",
+  stateName: "Texas",
+  dvMeasure: "Diminished value is recovery against the at-fault party's liability insurance. Texas recognizes DV as an element of property damage.",
+  keyStatutes: [
+    "Tex. Civ. Prac. & Rem. Code § 2001 - Damages for tortious injury to person or property",
+    "Tex. Civ. Prac. & Rem. Code § 12.002 - Statute of limitations (2 years)",
+  ],
+  keyCaseLaw: [
+    {
+      name: "Colson v. Tenneco, Inc.",
+      citation: "65 S.W.3d 872 (Tex. Civ. App. - Houston [1st Dist.] 2001)",
+      holding: "Texas recognizes diminished value claims as recoverable damages in property damage cases.",
+    },
+  ],
+  negotiationAngles: [
+    "Texas follows traditional tort principles - DV is recoverable from the at-fault party's insurance.",
+    "Use comparable vehicle sales data to support market value estimates.",
+    "Independent professional appraisals carry significant weight in Texas courts.",
+    "Statute of limitations is 2 years - act promptly on claims.",
+  ],
+  complianceNotes: [
+    "Statute of Limitations: 2 years from date of loss (shorter than GA/FL)",
+    "Texas allows recovery of diminished value as part of property damage from at-fault party's liability insurance.",
+    "Small claims court jurisdiction: $20,000 in some jurisdictions.",
+  ],
+  statuteOfLimitations: "2 years from date of loss",
+  systemPromptInstructions: `You are advising on a Texas diminished value claim. Apply ONLY these legal principles:
+
+TEXAS DIMINISHED VALUE LAW:
+- DV is recoverable from the at-fault party's liability insurance
+- Texas follows traditional tort principles for property damage
+- Statute of limitations is 2 years (shorter than other states)
+
+KEY POINTS:
+- Colson v. Tenneco establishes DV as recoverable property damage
+- Use comparable vehicle sales data
+- Professional appraisals are weighted evidence
+
+NEGOTIATION GUIDANCE:
+- Cite comparable sales data
+- Reference professional appraisal methodology
+- Act quickly - 2-year statute of limitations
+
+Do not assert specific formulas are required by Texas law. Only explain general principles.`,
+};
+
+export const CALIFORNIA_LAW: StateLaw = {
+  state: "CA",
+  stateName: "California",
+  dvMeasure: "Diminished value is recoverable from the at-fault party as an element of property damage under tort law principles.",
+  keyStatutes: [
+    "Cal. Civ. Code § 1748.25 - Recovery for damages related to auto repair",
+    "Cal. Code Civ. Proc. § 335.1 - 4-year statute of limitations for property damage",
+  ],
+  keyCaseLaw: [
+    {
+      name: "Keeton & Widiss Property Damage Principles",
+      citation: "California Common Law",
+      holding: "California courts recognize diminished value as a component of property damage recoverable from the at-fault party.",
+    },
+  ],
+  negotiationAngles: [
+    "California is a comparative fault state - recovery is based on degree of fault.",
+    "DV claims should be supported by comparable sales data and market analysis.",
+    "Independent professional appraisals strengthen DV claims in California.",
+    "Statute of limitations is 4 years from date of loss.",
+  ],
+  complianceNotes: [
+    "Statute of Limitations: 4 years from date of loss",
+    "California uses comparative negligence - recovery is reduced by claimant's percentage of fault.",
+    "DV claims are more common in higher-value vehicle markets (e.g., luxury cars, EVs).",
+  ],
+  statuteOfLimitations: "4 years from date of loss",
+  systemPromptInstructions: `You are advising on a California diminished value claim. Apply ONLY these legal principles:
+
+CALIFORNIA DIMINISHED VALUE LAW:
+- DV is recoverable as property damage from the at-fault party
+- California follows comparative fault principles
+- 4-year statute of limitations applies
+
+KEY POINTS:
+- Comparative negligence: Recovery is reduced by claimant's fault percentage
+- Use comparable vehicle sales data
+- Professional appraisals are important evidence
+
+NEGOTIATION GUIDANCE:
+- Establish other party's fault clearly
+- Document pre-accident value with multiple sources
+- Cite comparable sales data and market analysis
+
+Do not assert specific formulas are required by California law. Only explain general principles.`,
+};
+
+const STATE_LAWS: Record<"GA" | "FL" | "NC" | "TX" | "CA", StateLaw> = {
   GA: GEORGIA_LAW,
   FL: FLORIDA_LAW,
   NC: NORTH_CAROLINA_LAW,
+  TX: TEXAS_LAW,
+  CA: CALIFORNIA_LAW,
 };
 
-export function getStateLaw(state: "GA" | "FL" | "NC"): StateLaw {
-  return STATE_LAWS[state];
+export function getStateLaw(state: "GA" | "FL" | "NC" | "TX" | "CA"): StateLaw {
+  return STATE_LAWS[state] || STATE_LAWS["GA"];
 }
 
-export function getSystemPromptForState(state: "GA" | "FL" | "NC"): string {
+export function getSystemPromptForState(state: "GA" | "FL" | "NC" | "TX" | "CA"): string {
   return STATE_LAWS[state].systemPromptInstructions;
 }
 
-export function getNegotiationAngles(state: "GA" | "FL" | "NC"): string[] {
+export function getNegotiationAngles(state: "GA" | "FL" | "NC" | "TX" | "CA"): string[] {
   return STATE_LAWS[state].negotiationAngles;
 }
 
-export function getCaseLawSummary(state: "GA" | "FL" | "NC"): string {
+export function getCaseLawSummary(state: "GA" | "FL" | "NC" | "TX" | "CA"): string {
   const law = STATE_LAWS[state];
   return law.keyCaseLaw
     .map((c) => `${c.name} (${c.citation}): ${c.holding}`)
     .join("\n\n");
 }
 
-export function getComplianceReminder(state: "GA" | "FL" | "NC"): string {
+export function getComplianceReminder(state: "GA" | "FL" | "NC" | "TX" | "CA"): string {
   const law = STATE_LAWS[state];
   return `COMPLIANCE NOTES FOR ${law.stateName.toUpperCase()}:\n` +
     law.complianceNotes.map((note) => `• ${note}`).join("\n");

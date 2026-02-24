@@ -228,6 +228,8 @@ export function PrequalModal({ isOpen, onOpenChange }: PrequalModalProps) {
                         <SelectItem value="GA">Georgia</SelectItem>
                         <SelectItem value="FL">Florida</SelectItem>
                         <SelectItem value="NC">North Carolina</SelectItem>
+                        <SelectItem value="TX">Texas</SelectItem>
+                        <SelectItem value="CA">California</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>

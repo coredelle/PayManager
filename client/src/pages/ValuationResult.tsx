@@ -37,13 +37,19 @@ export default function ValuationResult() {
   ]);
   const [inputValue, setInputValue] = useState("");
 
-  const handleSend = (text: string) => {
+  const handleSend = async (text: string) => {
     if (!text) return;
     const newMessages = [...messages, { role: "user", text }];
     setMessages(newMessages);
     setInputValue("");
 
-    setTimeout(() => {
+    try {
+      // Call the API for intelligent mock responses
+      const result = await api.chat.negotiate(params.id!, text);
+      setMessages((curr) => [...curr, { role: "assistant", text: result }]);
+    } catch (error) {
+      console.error("Chat error:", error);
+      // Fallback to client-side response if API fails
       let response = "That's a great question. You should verify this with your specific state laws.";
       if (text.toLowerCase().includes("deny"))
         response =
@@ -56,7 +62,7 @@ export default function ValuationResult() {
           "For a claim of this size, hiring a lawyer might eat up too much of your recovery. This self-serve tool is designed to help you handle it yourself.";
 
       setMessages((curr) => [...curr, { role: "assistant", text: response }]);
-    }, 1000);
+    }
   };
 
   if (isLoading || authLoading) {
@@ -201,7 +207,23 @@ export default function ValuationResult() {
               </TabsContent>
 
               <TabsContent value="letter" className="p-8 animate-in fade-in slide-in-from-bottom-2">
-                <div className="font-serif text-sm leading-relaxed space-y-6 max-w-2xl mx-auto">
+                <div className="space-y-6">
+                  <div className="flex justify-end">
+                    <Button
+                      onClick={() => {
+                        const link = document.createElement("a");
+                        link.href = `/api/cases/${params.id}/demand-letter.pdf`;
+                        link.setAttribute("download", `demand-letter-${params.id}.pdf`);
+                        document.body.appendChild(link);
+                        link.click();
+                        document.body.removeChild(link);
+                      }}
+                      className="bg-emerald-600 hover:bg-emerald-700"
+                    >
+                      <Download className="h-4 w-4 mr-2" /> Download Demand Letter PDF
+                    </Button>
+                  </div>
+                  <div className="font-serif text-sm leading-relaxed space-y-6 max-w-2xl mx-auto">
                   <div className="text-right">{new Date().toLocaleDateString()}</div>
                   <div>
                     <p>ATTN: Claims Department</p>
@@ -239,6 +261,7 @@ export default function ValuationResult() {
                     <br />
                     [Your Name]
                   </p>
+                  </div>
                 </div>
               </TabsContent>
             </Tabs>

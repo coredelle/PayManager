@@ -23,7 +23,7 @@ export interface AppraisalInput {
   model: string;
   trim?: string;
   mileage: number;
-  state: "GA" | "FL" | "NC";
+  state: "GA" | "FL" | "NC" | "TX" | "CA";
   repairCost: number;
   priorAccidents: number;
   isAtFault: boolean;
@@ -205,7 +205,12 @@ export function generatePostRepairValue(
     stateFactor = 1.15;
   } else if (input.state === "NC") {
     stateFactor = 1.05;
+  } else if (input.state === "CA") {
+    stateFactor = 1.05;
+  } else if (input.state === "TX") {
+    stateFactor = 0.95;
   } else {
+    // Default for FL or other states
     stateFactor = 1.0;
   }
 
