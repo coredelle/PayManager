@@ -23,7 +23,7 @@ export default function Dashboard() {
   const { data: cases = [], isLoading } = useQuery({
     queryKey: ["cases"],
     queryFn: api.cases.list,
-    enabled: true, // TODO: Change to isAuthenticated
+    enabled: true,
   });
 
   if (authLoading) {

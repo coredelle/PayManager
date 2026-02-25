@@ -541,7 +541,7 @@ export async function registerRoutes(
   // VIN DECODE ROUTE
   // =====================
   
-  app.post("/api/vin/decode", requireAuth, async (req, res) => {
+  app.post("/api/vin/decode", async (req, res) => {
     try {
       const { vin } = req.body;
       
@@ -561,7 +561,7 @@ export async function registerRoutes(
   // COMPS ROUTE
   // =====================
   
-  app.post("/api/comps", requireAuth, async (req, res) => {
+  app.post("/api/comps", async (req, res) => {
     try {
       const { year, make, model, trim, state, mileage, zip } = req.body;
       
@@ -590,7 +590,7 @@ export async function registerRoutes(
   // APPRAISAL ESTIMATE ROUTE (Quick, no AI)
   // =====================
   
-  app.post("/api/appraisal/estimate", requireAuth, async (req, res) => {
+  app.post("/api/appraisal/estimate", async (req, res) => {
     try {
       const { year, make, model, mileage, state, repairCost, priorAccidents } = req.body;
       
@@ -641,7 +641,7 @@ export async function registerRoutes(
   // FULL APPRAISAL ROUTE (with AI narrative)
   // =====================
   
-  app.post("/api/appraisal/full", requireAuth, async (req, res) => {
+  app.post("/api/appraisal/full", async (req, res) => {
     try {
       const { caseId } = req.body;
       
@@ -1259,8 +1259,9 @@ export async function registerRoutes(
       );
       res.send(pdfBuffer);
     } catch (error) {
-      console.error("Georgia appraisal PDF error:", error);
-      res.status(500).json({ message: "Failed to generate PDF" });
+      console.error("Georgia appraisal PDF error:", error instanceof Error ? error.message : String(error));
+      console.error("Full error:", error);
+      res.status(500).json({ message: "Failed to generate PDF", error: error instanceof Error ? error.message : String(error) });
     }
   });
 

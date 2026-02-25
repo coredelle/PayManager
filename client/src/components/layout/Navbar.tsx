@@ -57,7 +57,7 @@ export function Navbar() {
               <Link href="/auth">
                 <Button variant="ghost" size="sm" data-testid="button-login">Log In</Button>
               </Link>
-              <Link href="/auth">
+              <Link href="/georgia-appraisal">
                 <Button size="sm" data-testid="button-start">Start Appraisal</Button>
               </Link>
             </div>
@@ -88,7 +88,7 @@ export function Navbar() {
                  <Link href="/auth">
                     <Button variant="outline" className="w-full justify-start">Log In</Button>
                  </Link>
-                 <Link href="/auth">
+                 <Link href="/georgia-appraisal">
                     <Button className="w-full justify-start">Start Appraisal</Button>
                  </Link>
                </>
