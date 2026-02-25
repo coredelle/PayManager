@@ -1014,6 +1014,8 @@ export async function registerRoutes(
   // GEORGIA APPRAISAL ROUTES
   // =====================
 
+  const useGeorgiaAppraisalMock = () => !process.env.DATABASE_URL;
+
   app.post("/api/georgia-appraisals", async (req, res) => {
     try {
       const data = req.body;
@@ -1056,11 +1058,15 @@ export async function registerRoutes(
       };
 
       let appraisal;
-      try {
-        appraisal = await storage.createGeorgiaAppraisal(baseAppraisalData);
-      } catch (dbError) {
-        console.warn("Georgia appraisal DB unavailable, using in-memory mock storage:", dbError);
+      if (useGeorgiaAppraisalMock()) {
         appraisal = createMockGeorgiaAppraisal(baseAppraisalData);
+      } else {
+        try {
+          appraisal = await storage.createGeorgiaAppraisal(baseAppraisalData);
+        } catch (dbError) {
+          console.warn("Georgia appraisal DB unavailable, using in-memory mock storage:", (dbError as Error).message);
+          appraisal = createMockGeorgiaAppraisal(baseAppraisalData);
+        }
       }
 
       res.status(201).json({ id: appraisal.id, appraisal });
@@ -1073,11 +1079,14 @@ export async function registerRoutes(
   app.get("/api/georgia-appraisals/:id", async (req, res) => {
     try {
       let appraisal;
-      try {
-        appraisal = await storage.getGeorgiaAppraisal(req.params.id);
-      } catch (dbError) {
-        console.warn("Georgia appraisal DB unavailable, using in-memory mock storage:", dbError);
+      if (useGeorgiaAppraisalMock()) {
         appraisal = getMockGeorgiaAppraisal(req.params.id);
+      } else {
+        try {
+          appraisal = await storage.getGeorgiaAppraisal(req.params.id);
+        } catch (dbError) {
+          appraisal = getMockGeorgiaAppraisal(req.params.id);
+        }
       }
       if (!appraisal) {
         return res.status(404).json({ message: "Appraisal not found" });
@@ -1092,11 +1101,14 @@ export async function registerRoutes(
   app.post("/api/georgia-appraisals/:id/calculate", async (req, res) => {
     try {
       let appraisal;
-      try {
-        appraisal = await storage.getGeorgiaAppraisal(req.params.id);
-      } catch (dbError) {
-        console.warn("Georgia appraisal DB unavailable, using in-memory mock storage:", dbError);
+      if (useGeorgiaAppraisalMock()) {
         appraisal = getMockGeorgiaAppraisal(req.params.id);
+      } else {
+        try {
+          appraisal = await storage.getGeorgiaAppraisal(req.params.id);
+        } catch (dbError) {
+          appraisal = getMockGeorgiaAppraisal(req.params.id);
+        }
       }
       if (!appraisal) {
         return res.status(404).json({ message: "Appraisal not found" });
@@ -1132,16 +1144,24 @@ export async function registerRoutes(
         calculatedAt: new Date(),
       };
 
-      try {
-        updated = await storage.updateGeorgiaAppraisal(req.params.id, updatePayload);
-      } catch (dbError) {
-        console.warn("Georgia appraisal DB unavailable when saving calculation, using in-memory mock storage:", dbError);
+      if (useGeorgiaAppraisalMock()) {
         updated = updateMockGeorgiaAppraisal(req.params.id, updatePayload);
+      } else {
+        try {
+          updated = await storage.updateGeorgiaAppraisal(req.params.id, updatePayload);
+        } catch (dbError) {
+          updated = updateMockGeorgiaAppraisal(req.params.id, updatePayload);
+        }
       }
 
       res.json({ 
         appraisal: updated, 
-        result: valuationResult,
+        result: {
+          ...valuationResult,
+          thirdParty: { cleanRetailPreAccident: valuationResult.marketcheckPricePre },
+          mileageBandDescription: valuationResult.methodology,
+          comparableFilterNotes: valuationResult.filteringLog.join("\n"),
+        },
         filteringLog: valuationResult.filteringLog,
       });
     } catch (error) {
@@ -1153,11 +1173,14 @@ export async function registerRoutes(
   app.get("/api/georgia-appraisals/:id/report.pdf", async (req, res) => {
     try {
       let appraisal;
-      try {
-        appraisal = await storage.getGeorgiaAppraisal(req.params.id);
-      } catch (dbError) {
-        console.warn("Georgia appraisal DB unavailable when loading for PDF, using in-memory mock storage:", dbError);
+      if (useGeorgiaAppraisalMock()) {
         appraisal = getMockGeorgiaAppraisal(req.params.id);
+      } else {
+        try {
+          appraisal = await storage.getGeorgiaAppraisal(req.params.id);
+        } catch (dbError) {
+          appraisal = getMockGeorgiaAppraisal(req.params.id);
+        }
       }
       if (!appraisal) {
         return res.status(404).json({ message: "Appraisal not found" });
@@ -1217,15 +1240,16 @@ export async function registerRoutes(
 
       const pdfBuffer = await generatePlaywrightPdf(pdfInput);
 
-      try {
-        await storage.updateGeorgiaAppraisal(req.params.id, {
-          pdfGeneratedAt: new Date(),
-        });
-      } catch (dbError) {
-        console.warn("Georgia appraisal DB unavailable when updating PDF timestamp, using in-memory mock storage:", dbError);
-        updateMockGeorgiaAppraisal(req.params.id, {
-          pdfGeneratedAt: new Date(),
-        });
+      if (useGeorgiaAppraisalMock()) {
+        updateMockGeorgiaAppraisal(req.params.id, { pdfGeneratedAt: new Date() });
+      } else {
+        try {
+          await storage.updateGeorgiaAppraisal(req.params.id, {
+            pdfGeneratedAt: new Date(),
+          });
+        } catch (dbError) {
+          updateMockGeorgiaAppraisal(req.params.id, { pdfGeneratedAt: new Date() });
+        }
       }
 
       res.setHeader("Content-Type", "application/pdf");

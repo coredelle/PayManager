@@ -31,7 +31,7 @@ export default function CreateCase() {
   
   const [formData, setFormData] = useState({
     caseType: "diminished_value" as "diminished_value" | "total_loss",
-    state: "GA" as "GA" | "FL" | "NC",
+    state: "GA" as "GA" | "FL" | "NC" | "TX" | "CA",
     atFaultInsurerName: "",
     claimNumber: "",
     dateOfLoss: "",
