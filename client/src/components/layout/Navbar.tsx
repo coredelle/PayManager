@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { ShieldCheck, Menu, X, User } from "lucide-react";
 import { useState } from "react";
 import { useAuth } from "@/hooks/useAuth";
+import { PrequalModal } from "@/components/features/PrequalModal";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -14,10 +15,13 @@ import {
 export function Navbar() {
   const [location] = useLocation();
   const [isOpen, setIsOpen] = useState(false);
+  const [showPrequal, setShowPrequal] = useState(false);
   const { user, isAuthenticated, logout } = useAuth();
 
   return (
-    <nav className="border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 sticky top-0 z-50">
+    <>
+      <PrequalModal isOpen={showPrequal} onOpenChange={setShowPrequal} />
+      <nav className="border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 sticky top-0 z-50">
       <div className="container mx-auto px-4 h-16 flex items-center justify-between">
         <Link href="/" className="flex items-center gap-2 font-serif font-bold text-xl text-primary tracking-tight" data-testid="link-logo">
           <ShieldCheck className="h-6 w-6" />
@@ -28,7 +32,7 @@ export function Navbar() {
           <Link href="/" className="text-sm font-medium text-muted-foreground hover:text-primary transition-colors">How it Works</Link>
           <Link href="/" className="text-sm font-medium text-muted-foreground hover:text-primary transition-colors">Pricing</Link>
           <Link href="/" className="text-sm font-medium text-muted-foreground hover:text-primary transition-colors">FAQ</Link>
-          
+
           <div className="h-6 w-px bg-border mx-2" />
 
           {isAuthenticated ? (
@@ -57,9 +61,13 @@ export function Navbar() {
               <Link href="/auth">
                 <Button variant="ghost" size="sm" data-testid="button-login">Log In</Button>
               </Link>
-              <Link href="/georgia-appraisal">
-                <Button size="sm" data-testid="button-start">Start Appraisal</Button>
-              </Link>
+              <Button
+                size="sm"
+                onClick={() => setShowPrequal(true)}
+                data-testid="button-free-appraisal"
+              >
+                Free Appraisal
+              </Button>
             </div>
           )}
         </div>
@@ -88,8 +96,8 @@ export function Navbar() {
                  <Link href="/auth">
                     <Button variant="outline" className="w-full justify-start">Log In</Button>
                  </Link>
-                 <Link href="/georgia-appraisal">
-                    <Button className="w-full justify-start">Start Appraisal</Button>
+                 <Link href="/auth">
+                    <Button className="w-full justify-start">Free Appraisal</Button>
                  </Link>
                </>
              )}
@@ -97,5 +105,6 @@ export function Navbar() {
         </div>
       )}
     </nav>
+    </>
   );
 }
