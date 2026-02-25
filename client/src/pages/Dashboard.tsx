@@ -26,6 +26,46 @@ export default function Dashboard() {
     enabled: true,
   });
 
+  // Mock data for demo purposes
+  const mockCases = [
+    {
+      id: "case-demo-001",
+      year: 2022,
+      make: "Honda",
+      model: "Civic",
+      caseType: "diminished_value",
+      state: "GA",
+      claimNumber: "CLM-2024-001",
+      status: "completed",
+      diminishedValueAmount: "2850",
+    },
+    {
+      id: "case-demo-002",
+      year: 2021,
+      make: "Toyota",
+      model: "Camry",
+      caseType: "diminished_value",
+      state: "GA",
+      claimNumber: "CLM-2024-002",
+      status: "completed",
+      diminishedValueAmount: "3200",
+    },
+    {
+      id: "case-demo-003",
+      year: 2023,
+      make: "Ford",
+      model: "F-150",
+      caseType: "diminished_value",
+      state: "GA",
+      claimNumber: "CLM-2024-003",
+      status: "completed",
+      diminishedValueAmount: "4100",
+    },
+  ];
+
+  // Use mock data if no real cases
+  const displayCases = (cases && cases.length > 0) ? cases : mockCases;
+
   if (authLoading) {
     return (
       <div className="container mx-auto px-4 py-8">
@@ -42,7 +82,7 @@ export default function Dashboard() {
           <h1 className="text-3xl font-serif font-bold text-slate-900" data-testid="text-dashboard-title">My Appraisals</h1>
           <p className="text-muted-foreground">Manage your vehicle value claims</p>
         </div>
-        <Link href="/create-case">
+        <Link href="/georgia-appraisal">
           <Button className="shadow-lg shadow-blue-500/20" data-testid="button-new-appraisal">
             <Plus className="mr-2 h-4 w-4" /> New Appraisal
           </Button>
@@ -55,21 +95,8 @@ export default function Dashboard() {
             <Skeleton className="h-32 w-full" />
             <Skeleton className="h-32 w-full" />
           </>
-        ) : cases.length === 0 ? (
-          <Card className="border-dashed py-12 text-center bg-slate-50/50">
-            <CardContent>
-              <div className="h-12 w-12 rounded-full bg-slate-100 mx-auto flex items-center justify-center mb-4">
-                <CarFront className="h-6 w-6 text-slate-400" />
-              </div>
-              <h3 className="font-medium text-lg mb-2">No appraisals yet</h3>
-              <p className="text-muted-foreground mb-6">Start a new case to calculate your diminished value.</p>
-              <Link href="/create-case">
-                <Button variant="outline" data-testid="button-create-first">Create your first case</Button>
-              </Link>
-            </CardContent>
-          </Card>
         ) : (
-          cases.map((c: any) => (
+          displayCases.map((c: any) => (
             <Card key={c.id} className="group hover:shadow-md transition-shadow duration-200 border-slate-200" data-testid={`card-case-${c.id}`}>
               <CardContent className="p-6">
                 <div className="flex flex-col md:flex-row gap-6 justify-between items-center">
@@ -110,7 +137,7 @@ export default function Dashboard() {
                         <Button variant="outline" className="w-full md:w-auto" data-testid={`button-view-${c.id}`}>View Report</Button>
                       </Link>
                     ) : (
-                      <Link href={`/create-case?id=${c.id}`}>
+                      <Link href={`/georgia-appraisal`}>
                         <Button className="w-full md:w-auto" data-testid={`button-continue-${c.id}`}>Continue</Button>
                       </Link>
                     )}

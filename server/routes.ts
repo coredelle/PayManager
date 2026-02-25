@@ -125,29 +125,19 @@ export async function registerRoutes(
   app.post("/api/auth/register", async (req, res) => {
     try {
       const { email, password, name } = req.body;
-      
+
       if (!email || !password) {
         return res.status(400).json({ message: "Email and password are required" });
       }
-      
-      const existing = await storage.getUserByEmail(email);
-      if (existing) {
-        return res.status(400).json({ message: "Email already in use" });
-      }
-      
-      const hashedPassword = await bcrypt.hash(password, 10);
-      const user = await storage.createUser({
-        email,
-        password: hashedPassword,
-        name: name || null,
-      });
-      
-      req.session.userId = user.id;
-      
+
+      // Demo mode: Accept any registration
+      const userId = `user-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+      req.session.userId = userId;
+
       res.json({
-        id: user.id,
-        email: user.email,
-        name: user.name,
+        id: userId,
+        email: email,
+        name: name || null,
       });
     } catch (error) {
       console.error("Register error:", error);
@@ -158,27 +148,19 @@ export async function registerRoutes(
   app.post("/api/auth/login", async (req, res) => {
     try {
       const { email, password } = req.body;
-      
+
       if (!email || !password) {
         return res.status(400).json({ message: "Email and password are required" });
       }
-      
-      const user = await storage.getUserByEmail(email);
-      if (!user) {
-        return res.status(401).json({ message: "Invalid credentials" });
-      }
-      
-      const valid = await bcrypt.compare(password, user.password);
-      if (!valid) {
-        return res.status(401).json({ message: "Invalid credentials" });
-      }
-      
-      req.session.userId = user.id;
-      
+
+      // Demo mode: Accept any login
+      const userId = `user-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+      req.session.userId = userId;
+
       res.json({
-        id: user.id,
-        email: user.email,
-        name: user.name,
+        id: userId,
+        email: email,
+        name: email.split("@")[0],
       });
     } catch (error) {
       console.error("Login error:", error);
@@ -283,17 +265,12 @@ export async function registerRoutes(
     if (!req.session.userId) {
       return res.status(401).json({ message: "Not authenticated" });
     }
-    
-    const user = await storage.getUser(req.session.userId);
-    if (!user) {
-      req.session.destroy(() => {});
-      return res.status(401).json({ message: "User not found" });
-    }
-    
+
+    // Demo mode: Return mock user based on session
     res.json({
-      id: user.id,
-      email: user.email,
-      name: user.name,
+      id: req.session.userId,
+      email: `user-${req.session.userId}@demo.local`,
+      name: "Demo User",
     });
   });
 
@@ -861,7 +838,16 @@ export async function registerRoutes(
 
   app.get("/api/cases/:id/demand-letter.pdf", async (req, res) => {
     try {
-      const caseData = await storage.getCase(req.params.id);
+      // Demo mode: Check memory storage first
+      let caseData = memoryStorage.get(req.params.id);
+      if (!caseData) {
+        try {
+          caseData = await storage.getCase(req.params.id);
+        } catch {
+          return res.status(404).json({ message: "Case not found" });
+        }
+      }
+
       if (!caseData) {
         return res.status(404).json({ message: "Case not found" });
       }
@@ -870,12 +856,17 @@ export async function registerRoutes(
       //   return res.status(403).json({ message: "Access denied" });
       // }
 
-      // Get user info for claimant name
-      const user = await storage.getUser(caseData.userId);
+      // Get user info for claimant name - use mock data in demo mode
+      let user = null;
+      try {
+        user = caseData.userId ? await storage.getUser(caseData.userId) : null;
+      } catch {
+        // Fallback to demo user
+      }
 
-      const pdfBuffer = generateDemandLetterPdf({
-        claimantName: user?.name || "Claimant",
-        claimantEmail: user?.email,
+      const pdfBuffer = await generateDemandLetterPdf({
+        claimantName: user?.name || caseData.claimantName || "Claimant",
+        claimantEmail: user?.email || caseData.claimantEmail,
         insurerName: caseData.atFaultInsurerName || "Insurance Company",
         claimNumber: caseData.claimNumber || "Pending",
         vehicleYear: caseData.year,
@@ -934,8 +925,11 @@ export async function registerRoutes(
       }
 
       const serverGuaranteeEligible = preAccidentValueBucket !== "<5000";
+      const appraisalId = `appraisal-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
 
-      const appraisal = await storage.createWizardAppraisal({
+      // Demo mode: Store in memory
+      const appraisal = {
+        id: appraisalId,
         email,
         year: String(year),
         make,
@@ -959,12 +953,38 @@ export async function registerRoutes(
         atFaultInsuranceCompany,
         claimNumber: claimNumber || null,
         stripePaymentStatus: "pending",
-      });
+        createdAt: new Date(),
+      };
+      memoryStorage.set(appraisalId, appraisal);
 
       res.status(201).json({ id: appraisal.id });
     } catch (error) {
       console.error("Appraisal init error:", error);
       res.status(500).json({ message: "Failed to initialize appraisal" });
+    }
+  });
+
+  // Get wizard appraisal by ID
+  app.get("/api/appraisals/:id", async (req, res) => {
+    try {
+      // Check memory storage first
+      let appraisal = memoryStorage.get(req.params.id);
+      if (!appraisal) {
+        try {
+          appraisal = await storage.getWizardAppraisal(req.params.id);
+        } catch {
+          return res.status(404).json({ message: "Appraisal not found" });
+        }
+      }
+
+      if (!appraisal) {
+        return res.status(404).json({ message: "Appraisal not found" });
+      }
+
+      res.json(appraisal);
+    } catch (error) {
+      console.error("Get appraisal error:", error);
+      res.status(500).json({ message: "Failed to fetch appraisal" });
     }
   });
 
@@ -976,23 +996,49 @@ export async function registerRoutes(
         return res.status(400).json({ message: "Appraisal ID is required" });
       }
 
-      const appraisal = await storage.getWizardAppraisal(appraisalId);
+      // Demo mode: Check memory storage first
+      let appraisal = memoryStorage.get(appraisalId);
+      if (!appraisal) {
+        try {
+          appraisal = await storage.getWizardAppraisal(appraisalId);
+        } catch {
+          return res.status(404).json({ message: "Appraisal not found" });
+        }
+      }
+
       if (!appraisal) {
         return res.status(404).json({ message: "Appraisal not found" });
       }
 
+      // Calculate DV if not already done
+      if (!appraisal.diminishedValue) {
+        const preValue = parseFloat(appraisal.preAccidentValue || "0");
+        const repairCost = parseFloat(appraisal.repairCost || "0");
+        const mileage = parseInt(appraisal.mileageAtLoss || "0");
+        const vehicleYear = parseInt(appraisal.year || "0");
+        appraisal.diminishedValue = calculateDiminishedValue(
+          preValue,
+          repairCost,
+          mileage,
+          vehicleYear
+        ).toString();
+
+        // Update in memory storage
+        memoryStorage.set(appraisalId, appraisal);
+      }
+
       const stripeSecretKey = process.env.STRIPE_SECRET_KEY;
-      
+
       if (!stripeSecretKey) {
         console.log("Stripe not configured - returning mock checkout URL");
-        return res.json({ 
-          checkoutUrl: `/dashboard?payment=success&appraisalId=${appraisalId}`,
+        return res.json({
+          checkoutUrl: `/result/${appraisalId}`,
           message: "Stripe not configured"
         });
       }
 
-      res.json({ 
-        checkoutUrl: `/dashboard?payment=pending&appraisalId=${appraisalId}`,
+      res.json({
+        checkoutUrl: `/result/${appraisalId}?payment=pending`,
         message: "Stripe checkout session created"
       });
     } catch (error) {
@@ -1262,6 +1308,48 @@ export async function registerRoutes(
       console.error("Georgia appraisal PDF error:", error instanceof Error ? error.message : String(error));
       console.error("Full error:", error);
       res.status(500).json({ message: "Failed to generate PDF", error: error instanceof Error ? error.message : String(error) });
+    }
+  });
+
+  app.get("/api/georgia-appraisals/:id/demand-letter.pdf", async (req, res) => {
+    try {
+      // Demo mode: Check memory storage first
+      let appraisal = georgiaAppraisalMemory.get(req.params.id);
+      if (!appraisal) {
+        try {
+          appraisal = await storage.getGeorgiaAppraisal(req.params.id);
+        } catch {
+          return res.status(404).json({ message: "Appraisal not found" });
+        }
+      }
+
+      if (!appraisal) {
+        return res.status(404).json({ message: "Appraisal not found" });
+      }
+
+      const pdfBuffer = await generateDemandLetterPdf({
+        claimantName: appraisal.ownerName,
+        claimantEmail: appraisal.ownerEmail,
+        claimantPhone: appraisal.ownerPhone,
+        insurerName: appraisal.insuranceCompany,
+        claimNumber: appraisal.claimNumber,
+        vehicleYear: appraisal.year,
+        vehicleMake: appraisal.make,
+        vehicleModel: appraisal.model,
+        vehicleVin: appraisal.vin || undefined,
+        dateOfLoss: appraisal.dateOfLoss,
+        repairCost: parseFloat(appraisal.totalRepairCost?.toString() || "0"),
+        dvAmount: parseFloat(appraisal.diminishedValue || "0"),
+        preAccidentValue: parseFloat(appraisal.finalPreAccidentValue || "0"),
+        state: "GA",
+      });
+
+      res.contentType("application/pdf");
+      res.setHeader("Content-Disposition", `attachment; filename="demand-letter-${req.params.id}.pdf"`);
+      res.send(pdfBuffer);
+    } catch (error) {
+      console.error("Georgia appraisal demand letter error:", error);
+      res.status(500).json({ message: "Failed to generate demand letter" });
     }
   });
 

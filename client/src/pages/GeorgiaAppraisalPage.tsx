@@ -133,6 +133,12 @@ export default function GeorgiaAppraisalPage() {
     }
   };
 
+  const handleDownloadDemandLetter = () => {
+    if (appraisalId) {
+      window.open(`/api/georgia-appraisals/${appraisalId}/demand-letter.pdf`, "_blank");
+    }
+  };
+
   const canProceed = () => {
     switch (step) {
       case "owner":
@@ -571,10 +577,6 @@ export default function GeorgiaAppraisalPage() {
                   <span className="font-medium">{formatCurrency(result.thirdParty.cleanRetailPreAccident)}</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-slate-600">Comparables Average:</span>
-                  <span className="font-medium">{formatCurrency(result.comparablesAvgRetail)}</span>
-                </div>
-                <div className="flex justify-between">
                   <span className="text-slate-600">Final Pre-Accident Value:</span>
                   <span className="font-medium">{formatCurrency(result.finalPreAccidentValue)}</span>
                 </div>
@@ -591,8 +593,8 @@ export default function GeorgiaAppraisalPage() {
               <p className="text-sm text-slate-600">{result.mileageBandDescription}</p>
               <p className="text-sm text-slate-600">{result.comparableFilterNotes}</p>
 
-              <Button 
-                onClick={handleDownloadPdf} 
+              <Button
+                onClick={handleDownloadPdf}
                 className="w-full bg-emerald-500 hover:bg-emerald-600"
                 size="lg"
                 data-testid="button-download-pdf"
@@ -601,13 +603,23 @@ export default function GeorgiaAppraisalPage() {
                 Download Professional PDF Report
               </Button>
 
-              <Button 
-                variant="outline" 
-                onClick={() => navigate("/")} 
+              <Button
+                onClick={handleDownloadDemandLetter}
+                className="w-full bg-blue-500 hover:bg-blue-600"
+                size="lg"
+                data-testid="button-download-demand-letter"
+              >
+                <Download className="mr-2 h-5 w-5" />
+                Download Demand Letter
+              </Button>
+
+              <Button
+                variant="outline"
+                onClick={() => navigate("/dashboard")}
                 className="w-full"
                 data-testid="button-back-home"
               >
-                Back to Home
+                Back to Dashboard
               </Button>
             </CardContent>
           </Card>

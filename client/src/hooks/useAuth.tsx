@@ -29,7 +29,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     queryFn: api.auth.getUser,
     retry: false,
     staleTime: 5 * 60 * 1000,
-    enabled: false, // Disable auth query for now - running without database
+    enabled: true,
   });
 
   const loginMutation = useMutation({

@@ -1,31 +1,18 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect } from "react";
 import { Label } from "@/components/ui/label";
-import { Input } from "@/components/ui/input";
-import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { Loader2, AlertTriangle, Check, X } from "lucide-react";
-
-interface DecodedVehicle {
-  year?: number;
-  make?: string;
-  model?: string;
-  trim?: string;
-}
+import { Loader2 } from "lucide-react";
 
 interface VehicleSelectorProps {
   year: string;
   make: string;
   model: string;
   trim?: string;
-  vin?: string;
   onYearChange: (year: string) => void;
   onMakeChange: (make: string) => void;
   onModelChange: (model: string) => void;
   onTrimChange?: (trim: string) => void;
-  onVinChange?: (vin: string) => void;
   showTrim?: boolean;
-  showVin?: boolean;
   disabled?: boolean;
 }
 
@@ -37,14 +24,11 @@ export function VehicleSelector({
   make,
   model,
   trim = "",
-  vin = "",
   onYearChange,
   onMakeChange,
   onModelChange,
   onTrimChange,
-  onVinChange,
   showTrim = false,
-  showVin = false,
   disabled = false,
 }: VehicleSelectorProps) {
   const [makes, setMakes] = useState<string[]>([]);
@@ -53,15 +37,9 @@ export function VehicleSelector({
   const [loadingMakes, setLoadingMakes] = useState(false);
   const [loadingModels, setLoadingModels] = useState(false);
   const [loadingTrims, setLoadingTrims] = useState(false);
-  const [loadingVin, setLoadingVin] = useState(false);
   const [makesError, setMakesError] = useState<string | null>(null);
   const [modelsError, setModelsError] = useState<string | null>(null);
   const [trimsError, setTrimsError] = useState<string | null>(null);
-  const [vinError, setVinError] = useState<string | null>(null);
-  
-  const [decodedVehicle, setDecodedVehicle] = useState<DecodedVehicle | null>(null);
-  const [showReconciliation, setShowReconciliation] = useState(false);
-  const [vinInput, setVinInput] = useState(vin);
 
   useEffect(() => {
     if (!year) {
@@ -153,155 +131,8 @@ export function VehicleSelector({
     if (onTrimChange) onTrimChange("");
   };
 
-  const handleVinInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const value = e.target.value.toUpperCase().replace(/[^A-HJ-NPR-Z0-9]/g, "").slice(0, 17);
-    setVinInput(value);
-    setVinError(null);
-    setShowReconciliation(false);
-    setDecodedVehicle(null);
-  };
-
-  const decodeVinHandler = useCallback(async () => {
-    if (vinInput.length !== 17) {
-      setVinError("VIN must be exactly 17 characters");
-      return;
-    }
-
-    setLoadingVin(true);
-    setVinError(null);
-    
-    try {
-      const res = await fetch(`/api/vehicles/decode-vin?vin=${vinInput}`);
-      if (!res.ok) {
-        throw new Error("Failed to decode VIN");
-      }
-      
-      const decoded: DecodedVehicle = await res.json();
-      setDecodedVehicle(decoded);
-      
-      if (onVinChange) {
-        onVinChange(vinInput);
-      }
-
-      const hasYear = !!decoded.year;
-      const hasMake = !!decoded.make;
-      const hasModel = !!decoded.model;
-      
-      const yearMismatch = hasYear && year && String(decoded.year) !== year;
-      const makeMismatch = hasMake && make && decoded.make?.toLowerCase() !== make.toLowerCase();
-      const modelMismatch = hasModel && model && decoded.model?.toLowerCase() !== model.toLowerCase();
-      
-      if ((yearMismatch || makeMismatch || modelMismatch) && (year || make || model)) {
-        setShowReconciliation(true);
-      } else if (hasYear || hasMake || hasModel) {
-        applyDecodedVehicle(decoded);
-      }
-    } catch (err) {
-      console.error(err);
-      setVinError("Could not decode VIN. Please check and try again.");
-    } finally {
-      setLoadingVin(false);
-    }
-  }, [vinInput, year, make, model, onVinChange]);
-
-  const applyDecodedVehicle = (decoded: DecodedVehicle) => {
-    if (decoded.year) {
-      onYearChange(String(decoded.year));
-    }
-    if (decoded.make) {
-      onMakeChange(decoded.make);
-    }
-    if (decoded.model) {
-      onModelChange(decoded.model);
-    }
-    if (decoded.trim && onTrimChange) {
-      onTrimChange(decoded.trim);
-    }
-    setShowReconciliation(false);
-  };
-
-  const dismissReconciliation = () => {
-    setShowReconciliation(false);
-  };
-
   return (
     <div className="space-y-4">
-      {showVin && (
-        <div className="space-y-2">
-          <Label htmlFor="vin">VIN (Optional)</Label>
-          <div className="flex gap-2">
-            <Input
-              id="vin"
-              data-testid="input-vin"
-              value={vinInput}
-              onChange={handleVinInputChange}
-              placeholder="Enter 17-character VIN"
-              maxLength={17}
-              disabled={disabled || loadingVin}
-              className="font-mono uppercase"
-            />
-            <Button
-              type="button"
-              variant="outline"
-              onClick={decodeVinHandler}
-              disabled={disabled || loadingVin || vinInput.length !== 17}
-              data-testid="button-decode-vin"
-            >
-              {loadingVin ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : (
-                "Decode"
-              )}
-            </Button>
-          </div>
-          {vinError && (
-            <p className="text-sm text-red-500" data-testid="text-vin-error">{vinError}</p>
-          )}
-          <p className="text-xs text-slate-500">
-            Enter your VIN to auto-fill vehicle details, or select manually below.
-          </p>
-        </div>
-      )}
-
-      {showReconciliation && decodedVehicle && (
-        <Alert className="border-amber-500 bg-amber-50" data-testid="alert-vin-reconciliation">
-          <AlertTriangle className="h-4 w-4 text-amber-600" />
-          <AlertTitle className="text-amber-800">Vehicle Details Found</AlertTitle>
-          <AlertDescription className="text-amber-700">
-            <p className="mb-2">
-              We found vehicle details from your VIN that differ from your current selection:
-            </p>
-            <div className="bg-white rounded p-2 mb-3 text-sm">
-              <p><strong>From VIN:</strong> {decodedVehicle.year} {decodedVehicle.make} {decodedVehicle.model} {decodedVehicle.trim || ""}</p>
-              {(year || make || model) && (
-                <p><strong>Current:</strong> {year} {make} {model} {trim}</p>
-              )}
-            </div>
-            <div className="flex gap-2">
-              <Button
-                type="button"
-                size="sm"
-                onClick={() => applyDecodedVehicle(decodedVehicle)}
-                data-testid="button-apply-vin"
-              >
-                <Check className="h-4 w-4 mr-1" />
-                Apply VIN Details
-              </Button>
-              <Button
-                type="button"
-                size="sm"
-                variant="outline"
-                onClick={dismissReconciliation}
-                data-testid="button-dismiss-vin"
-              >
-                <X className="h-4 w-4 mr-1" />
-                Keep Current Selection
-              </Button>
-            </div>
-          </AlertDescription>
-        </Alert>
-      )}
-
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <div>
           <Label htmlFor="year">Year *</Label>

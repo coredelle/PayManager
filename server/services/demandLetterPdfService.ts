@@ -27,50 +27,56 @@ export interface DemandLetterData {
   appraiserLicense?: string;
 }
 
-export function generateDemandLetterPdf(data: DemandLetterData): Buffer {
-  const doc = new PDFDocument({
-    margin: 50,
-    size: "Letter",
-  });
+export function generateDemandLetterPdf(data: DemandLetterData): Promise<Buffer> {
+  return new Promise((resolve, reject) => {
+    try {
+      const doc = new PDFDocument({
+        margin: 50,
+        size: "Letter",
+      });
 
-  const buffers: Buffer[] = [];
-  doc.on("data", (chunk) => buffers.push(chunk));
+      const buffers: Buffer[] = [];
+      doc.on("data", (chunk) => buffers.push(chunk));
+      doc.on("end", () => {
+        resolve(Buffer.concat(buffers));
+      });
+      doc.on("error", (err) => reject(err));
 
-  // Header
-  doc.fontSize(14).font("Helvetica-Bold").text("DEMAND FOR PAYMENT", { align: "center" });
-  doc.fontSize(10).font("Helvetica").text("Diminished Value Claim", { align: "center" });
-  doc.moveDown(0.5);
+      // Header
+      doc.fontSize(14).font("Helvetica-Bold").text("DEMAND FOR PAYMENT", { align: "center" });
+      doc.fontSize(10).font("Helvetica").text("Diminished Value Claim", { align: "center" });
+      doc.moveDown(0.5);
 
-  // Date
-  const today = new Date().toLocaleDateString("en-US", {
-    year: "numeric",
-    month: "long",
-    day: "numeric",
-  });
-  doc.fontSize(10).text(`Date: ${today}`);
-  doc.moveDown(1);
+      // Date
+      const today = new Date().toLocaleDateString("en-US", {
+        year: "numeric",
+        month: "long",
+        day: "numeric",
+      });
+      doc.fontSize(10).text(`Date: ${today}`);
+      doc.moveDown(1);
 
-  // To: Insurance Company
-  doc.fontSize(10).font("Helvetica-Bold").text("TO:");
-  doc.font("Helvetica").text(data.insurerName);
-  doc.text(`Claim #: ${data.claimNumber}`);
-  doc.moveDown(1);
+      // To: Insurance Company
+      doc.fontSize(10).font("Helvetica-Bold").text("TO:");
+      doc.font("Helvetica").text(data.insurerName);
+      doc.text(`Claim #: ${data.claimNumber}`);
+      doc.moveDown(1);
 
-  // From: Claimant
-  doc.font("Helvetica-Bold").text("FROM:");
-  doc.font("Helvetica").text(data.claimantName);
-  if (data.claimantEmail) doc.text(`Email: ${data.claimantEmail}`);
-  if (data.claimantPhone) doc.text(`Phone: ${data.claimantPhone}`);
-  doc.moveDown(1);
+      // From: Claimant
+      doc.font("Helvetica-Bold").text("FROM:");
+      doc.font("Helvetica").text(data.claimantName);
+      if (data.claimantEmail) doc.text(`Email: ${data.claimantEmail}`);
+      if (data.claimantPhone) doc.text(`Phone: ${data.claimantPhone}`);
+      doc.moveDown(1);
 
-  // Subject
-  doc.font("Helvetica-Bold").text("SUBJECT: Formal Demand for Diminished Value Payment");
-  doc.moveDown(1);
+      // Subject
+      doc.font("Helvetica-Bold").text("SUBJECT: Formal Demand for Diminished Value Payment");
+      doc.moveDown(1);
 
-  // Body paragraphs
-  doc.font("Helvetica").fontSize(10).text(
-    `This letter formally demands payment in the amount of ${formatCurrency(data.dvAmount)} for diminished value damage to my vehicle as a result of the accident that occurred on ${data.dateOfLoss}.`
-  );
+      // Body paragraphs
+      doc.font("Helvetica").fontSize(10).text(
+        `This letter formally demands payment in the amount of ${formatCurrency(data.dvAmount)} for diminished value damage to my vehicle as a result of the accident that occurred on ${data.dateOfLoss}.`
+      );
   doc.moveDown(0.5);
 
   // Vehicle information
@@ -175,8 +181,10 @@ export function generateDemandLetterPdf(data: DemandLetterData): Buffer {
   );
 
   doc.end();
-
-  return Buffer.concat(buffers);
+    } catch (error) {
+      reject(error);
+    }
+  });
 }
 
 function formatCurrency(amount: number): string {

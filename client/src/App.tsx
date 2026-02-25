@@ -10,7 +10,6 @@ import AuthPage from "@/pages/AuthPage";
 import ForgotPasswordPage from "@/pages/ForgotPasswordPage";
 import ResetPasswordPage from "@/pages/ResetPasswordPage";
 import Dashboard from "@/pages/Dashboard";
-import CreateCase from "@/pages/CreateCase";
 import ValuationResult from "@/pages/ValuationResult";
 import AppraisalWizardPage from "@/pages/AppraisalWizardPage";
 import GeorgiaAppraisalPage from "@/pages/GeorgiaAppraisalPage";
@@ -25,7 +24,6 @@ function Router() {
         <Route path="/forgot-password" component={ForgotPasswordPage} />
         <Route path="/reset-password" component={ResetPasswordPage} />
         <Route path="/dashboard" component={Dashboard} />
-        <Route path="/create-case" component={CreateCase} />
         <Route path="/result/:id" component={ValuationResult} />
         <Route path="/appraisal/start" component={AppraisalWizardPage} />
         <Route path="/georgia-appraisal" component={GeorgiaAppraisalPage} />
