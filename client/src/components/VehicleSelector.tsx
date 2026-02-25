@@ -133,6 +133,18 @@ export function VehicleSelector({
 
   return (
     <div className="space-y-4">
+      {/* VIN input field at top, full width */}
+      <div className="w-full">
+        <Label htmlFor="vin">VIN</Label>
+        <input
+          id="vin"
+          type="text"
+          maxLength={17}
+          className="w-full border rounded-md px-3 py-2 text-sm"
+          placeholder="Enter VIN"
+          onChange={e => onTrimChange && onTrimChange(e.target.value)}
+        />
+      </div>
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <div>
           <Label htmlFor="year">Year *</Label>
@@ -220,6 +232,7 @@ export function VehicleSelector({
           </Select>
         </div>
       </div>
+
 
       {showTrim && (
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
