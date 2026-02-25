@@ -144,7 +144,7 @@ export default function GeorgiaAppraisalPage() {
       case "owner":
         return formData.ownerName && formData.ownerEmail && formData.ownerPhone;
       case "vehicle":
-        return formData.year && formData.make && formData.model && formData.vin && formData.mileage;
+        return formData.year && formData.make && formData.model && formData.mileage;
       case "accident":
         return formData.insuranceCompany && formData.claimNumber && formData.dateOfLoss;
       case "damage":
@@ -298,14 +298,11 @@ export default function GeorgiaAppraisalPage() {
                 make={formData.make}
                 model={formData.model}
                 trim={formData.trim}
-                vin={formData.vin}
                 onYearChange={(v) => updateField("year", v)}
                 onMakeChange={(v) => updateField("make", v)}
                 onModelChange={(v) => updateField("model", v)}
                 onTrimChange={(v) => updateField("trim", v)}
-                onVinChange={(v) => updateField("vin", v)}
                 showTrim={true}
-                showVin={true}
               />
               <div className="grid grid-cols-2 gap-4">
                 <div>

@@ -455,28 +455,23 @@ export async function registerRoutes(
   app.post("/api/prequal/estimate", async (req, res) => {
     try {
       const { year, make, model, mileage, state, fault } = req.body;
-      
       if (!year || !make || !model || !mileage || !state || !fault) {
         return res.status(400).json({ message: "All fields are required" });
       }
-      
+      // Mock calculation
       const vehicleAge = new Date().getFullYear() - parseInt(year);
       const mileageNum = parseInt(mileage);
-      
       let baseValueEstimate = 25000;
       if (vehicleAge <= 2) baseValueEstimate = 35000;
       else if (vehicleAge <= 4) baseValueEstimate = 28000;
       else if (vehicleAge <= 6) baseValueEstimate = 20000;
       else if (vehicleAge <= 8) baseValueEstimate = 15000;
       else baseValueEstimate = 10000;
-      
       if (mileageNum > 100000) baseValueEstimate *= 0.7;
       else if (mileageNum > 75000) baseValueEstimate *= 0.8;
       else if (mileageNum > 50000) baseValueEstimate *= 0.9;
-      
       let discountMin = 0.08;
       let discountMax = 0.15;
-      
       if (vehicleAge <= 3) {
         discountMin = 0.12;
         discountMax = 0.20;
@@ -487,23 +482,11 @@ export async function registerRoutes(
         discountMin = 0.05;
         discountMax = 0.10;
       }
-      
       const estimateMin = Math.round(baseValueEstimate * discountMin);
       const estimateMax = Math.round(baseValueEstimate * discountMax);
-      
-      const lead = await storage.createPrequalLead({
-        year: parseInt(year),
-        make,
-        model,
-        mileage: mileageNum,
-        state: state as "GA" | "FL" | "NC",
-        fault,
-        estimateMin: estimateMin.toString(),
-        estimateMax: estimateMax.toString(),
-      });
-      
+      // Return mock response
       res.json({
-        id: lead.id,
+        id: `mock-lead-${Date.now()}`,
         estimateMin,
         estimateMax,
         qualified: fault !== "at_fault",
@@ -1066,7 +1049,7 @@ export async function registerRoutes(
     try {
       const data = req.body;
 
-      if (!data.ownerName || !data.ownerEmail || !data.year || !data.make || !data.model || !data.vin || !data.insuranceCompany || !data.claimNumber || !data.dateOfLoss) {
+      if (!data.ownerName || !data.ownerEmail || !data.year || !data.make || !data.model || !data.insuranceCompany || !data.claimNumber || !data.dateOfLoss) {
         return res.status(400).json({ message: "Missing required fields" });
       }
 

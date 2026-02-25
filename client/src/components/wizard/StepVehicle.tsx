@@ -46,7 +46,16 @@ export default function StepVehicle({ formData, updateFormData, onNext, onBack }
     if (validate()) {
       onNext();
     }
-  };
+  } 
+
+  const isValid = () => {
+    if (!formData.year) return false;
+    const yearNum = typeof formData.year === "string" ? parseInt(formData.year) : formData.year;
+    if (yearNum < 1980 || yearNum > currentYear + 1) return false;
+    if (!formData.make || formData.make.trim() === "") return false;
+    if (!formData.model || formData.model.trim() === "") return false;
+    return true;
+  }
 
   return (
     <div className="space-y-6">
@@ -64,14 +73,11 @@ export default function StepVehicle({ formData, updateFormData, onNext, onBack }
           make={formData.make || ""}
           model={formData.model || ""}
           trim={formData.trim || ""}
-          vin={formData.vin || ""}
           onYearChange={(v) => updateFormData({ year: v ? parseInt(v) : "" })}
           onMakeChange={(v) => updateFormData({ make: v })}
           onModelChange={(v) => updateFormData({ model: v })}
           onTrimChange={(v) => updateFormData({ trim: v })}
-          onVinChange={(v) => updateFormData({ vin: v })}
           showTrim={true}
-          showVin={true}
         />
         {(errors.year || errors.make || errors.model) && (
           <p className="text-sm text-red-500">Please select Year, Make, and Model</p>
@@ -98,6 +104,7 @@ export default function StepVehicle({ formData, updateFormData, onNext, onBack }
             onClick={handleContinue}
             className="flex-1 bg-emerald-500 hover:bg-emerald-600"
             data-testid="button-continue-vehicle"
+            disabled={!isValid()}
           >
             Continue
             <ArrowRight className="ml-2 h-4 w-4" />
