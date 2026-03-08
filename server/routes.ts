@@ -356,14 +356,35 @@ export async function registerRoutes(
 
   app.get("/api/cases/:id", async (req, res) => {
     try {
-      const caseData = getMockCase(req.params.id);
+      let caseData = getMockCase(req.params.id);
+      
+      // Provide detailed mock data for dashboard demo cases
+      if (!caseData && req.params.id.startsWith("case-demo-")) {
+        const idNum = req.params.id.slice(-3);
+        caseData = {
+          id: req.params.id,
+          year: idNum === '001' ? 2022 : idNum === '002' ? 2021 : 2023,
+          make: idNum === '001' ? 'Honda' : idNum === '002' ? 'Toyota' : 'Ford',
+          model: idNum === '001' ? 'Civic' : idNum === '002' ? 'Camry' : 'F-150',
+          trim: 'SE',
+          vin: `1DEMOVIN000000${idNum}`,
+          mileageAtLoss: 35000,
+          claimNumber: `CLM-2024-${idNum}`,
+          dateOfLoss: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toLocaleDateString(),
+          atFaultInsurerName: "State Farm",
+          totalRepairCost: "5400",
+          bodyShopName: "Collision Experts",
+          state: "GA",
+          preAccidentValue: idNum === '001' ? "22000" : idNum === '002' ? "24000" : "32000",
+          postAccidentValue: idNum === '001' ? "19150" : idNum === '002' ? "20800" : "27900",
+          diminishedValueAmount: idNum === '001' ? "2850" : idNum === '002' ? "3200" : "4100",
+          status: "completed"
+        };
+      }
+
       if (!caseData) {
         return res.status(404).json({ message: "Case not found" });
       }
-      // Disabled auth check for demo
-      // if (caseData.userId !== req.session.userId) {
-      //   return res.status(403).json({ message: "Access denied" });
-      // }
       res.json(caseData);
     } catch (error) {
       console.error("Get case error:", error);

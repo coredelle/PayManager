@@ -179,13 +179,13 @@ export default function Dashboard() {
 
         <div>
           <Card className="bg-slate-50 border-slate-200 h-[400px] flex flex-col">
-            <CardHeader className="pb-4 border-b bg-white rounded-t-lg">
+            <CardHeader className="pb-4 border-b bg-white rounded-t-lg shrink-0">
               <CardTitle className="text-lg flex items-center gap-2">
                 <Bot className="h-5 w-5 text-blue-600" />
                 Claim Assistant
               </CardTitle>
             </CardHeader>
-            <CardContent className="flex-1 p-0 flex flex-col">
+            <CardContent className="flex-1 p-0 flex flex-col min-h-0">
               <ScrollArea className="flex-1 p-4">
                 <div className="space-y-4">
                   {chatMessages.map((m, i) => (
@@ -200,7 +200,7 @@ export default function Dashboard() {
                   ))}
                 </div>
               </ScrollArea>
-              <div className="p-4 border-t bg-white rounded-b-lg">
+              <div className="p-4 border-t bg-white rounded-b-lg shrink-0">
                 <div className="flex gap-2">
                   <Input placeholder="Ask a question..." value={chatInput} onChange={(e) => setChatInput(e.target.value)} onKeyDown={(e) => e.key === "Enter" && handleDashboardChatSend(chatInput)} />
                   <Button size="icon" onClick={() => handleDashboardChatSend(chatInput)}>
