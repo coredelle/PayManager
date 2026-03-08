@@ -63,8 +63,11 @@ export interface IStorage {
   getGeorgiaAppraisalsByUser(userId: string): Promise<GeorgiaAppraisal[]>;
 }
 
+// =====================
+// DATABASE STORAGE (used when better-sqlite3 is available, i.e. local dev)
+// =====================
+
 export class DatabaseStorage implements IStorage {
-  // User methods
   async getUser(id: string): Promise<User | undefined> {
     const [user] = await db.select().from(users).where(eq(users.id, id)).limit(1);
     return user;
@@ -80,7 +83,6 @@ export class DatabaseStorage implements IStorage {
     return user;
   }
 
-  // Case methods
   async getCase(id: string): Promise<Case | undefined> {
     const [caseData] = await db.select().from(cases).where(eq(cases.id, id)).limit(1);
     return caseData;
@@ -105,7 +107,6 @@ export class DatabaseStorage implements IStorage {
     return updated;
   }
 
-  // Prequal lead methods
   async createPrequalLead(lead: InsertPrequalLead): Promise<PrequalLead> {
     const [newLead] = await db.insert(prequalLeads).values(lead).returning();
     return newLead;
@@ -116,7 +117,6 @@ export class DatabaseStorage implements IStorage {
     return lead;
   }
 
-  // Chat message methods
   async getChatMessagesByCase(caseId: string): Promise<ChatMessage[]> {
     return db.select().from(chatMessages)
       .where(eq(chatMessages.caseId, caseId))
@@ -128,7 +128,6 @@ export class DatabaseStorage implements IStorage {
     return newMessage;
   }
 
-  // Wizard appraisal methods
   async createWizardAppraisal(appraisal: InsertWizardAppraisal): Promise<WizardAppraisal> {
     const [newAppraisal] = await db.insert(wizardAppraisals).values(appraisal).returning();
     return newAppraisal;
@@ -147,7 +146,6 @@ export class DatabaseStorage implements IStorage {
     return updated;
   }
 
-  // Password reset methods
   async createPasswordResetToken(token: InsertPasswordResetToken): Promise<PasswordResetToken> {
     const [newToken] = await db.insert(passwordResetTokens).values(token).returning();
     return newToken;
@@ -172,7 +170,6 @@ export class DatabaseStorage implements IStorage {
       .where(eq(users.id, userId));
   }
 
-  // Georgia appraisal methods
   async createGeorgiaAppraisal(appraisal: InsertGeorgiaAppraisal): Promise<GeorgiaAppraisal> {
     const [newAppraisal] = await db.insert(georgiaAppraisals).values(appraisal).returning();
     return newAppraisal;
@@ -198,4 +195,185 @@ export class DatabaseStorage implements IStorage {
   }
 }
 
-export const storage = new DatabaseStorage();
+// =====================
+// MEMORY STORAGE (used on Vercel / serverless where native addons are unavailable)
+// =====================
+
+export class MemoryStorage implements IStorage {
+  private users = new Map<string, User>();
+  private cases = new Map<string, Case>();
+  private prequalLeads = new Map<string, PrequalLead>();
+  private chatMessages = new Map<string, ChatMessage>();
+  private wizardAppraisals = new Map<string, WizardAppraisal>();
+  private passwordResetTokens = new Map<string, PasswordResetToken>();
+  private georgiaAppraisals = new Map<string, GeorgiaAppraisal>();
+
+  async getUser(id: string): Promise<User | undefined> {
+    return this.users.get(id);
+  }
+
+  async getUserByEmail(email: string): Promise<User | undefined> {
+    for (const user of Array.from(this.users.values())) {
+      if (user.email === email) return user;
+    }
+    return undefined;
+  }
+
+  async createUser(insertUser: InsertUser): Promise<User> {
+    const user: User = {
+      id: randomUUID(),
+      createdAt: new Date(),
+      updatedAt: new Date(),
+      name: insertUser.name ?? null,
+      password: insertUser.password ?? null,
+      email: insertUser.email,
+    } as User;
+    this.users.set(user.id, user);
+    return user;
+  }
+
+  async getCase(id: string): Promise<Case | undefined> {
+    return this.cases.get(id);
+  }
+
+  async getCasesByUser(userId: string): Promise<Case[]> {
+    return Array.from(this.cases.values())
+      .filter(c => c.userId === userId)
+      .sort((a, b) => (b.updatedAt?.getTime() ?? 0) - (a.updatedAt?.getTime() ?? 0));
+  }
+
+  async createCase(caseData: InsertCase): Promise<Case> {
+    const newCase: Case = {
+      id: randomUUID(),
+      createdAt: new Date(),
+      updatedAt: new Date(),
+      ...caseData,
+    } as Case;
+    this.cases.set(newCase.id, newCase);
+    return newCase;
+  }
+
+  async updateCase(id: string, updates: Partial<InsertCase>): Promise<Case | undefined> {
+    const existing = this.cases.get(id);
+    if (!existing) return undefined;
+    const updated = { ...existing, ...updates, updatedAt: new Date() } as Case;
+    this.cases.set(id, updated);
+    return updated;
+  }
+
+  async createPrequalLead(lead: InsertPrequalLead): Promise<PrequalLead> {
+    const newLead: PrequalLead = {
+      id: randomUUID(),
+      createdAt: new Date(),
+      ...lead,
+    } as PrequalLead;
+    this.prequalLeads.set(newLead.id, newLead);
+    return newLead;
+  }
+
+  async getPrequalLead(id: string): Promise<PrequalLead | undefined> {
+    return this.prequalLeads.get(id);
+  }
+
+  async getChatMessagesByCase(caseId: string): Promise<ChatMessage[]> {
+    return Array.from(this.chatMessages.values())
+      .filter(m => m.caseId === caseId)
+      .sort((a, b) => (a.createdAt?.getTime() ?? 0) - (b.createdAt?.getTime() ?? 0));
+  }
+
+  async createChatMessage(message: InsertChatMessage): Promise<ChatMessage> {
+    const newMsg: ChatMessage = {
+      id: randomUUID(),
+      createdAt: new Date(),
+      ...message,
+    } as ChatMessage;
+    this.chatMessages.set(newMsg.id, newMsg);
+    return newMsg;
+  }
+
+  async createWizardAppraisal(appraisal: InsertWizardAppraisal): Promise<WizardAppraisal> {
+    const newAppraisal: WizardAppraisal = {
+      id: randomUUID(),
+      createdAt: new Date(),
+      updatedAt: new Date(),
+      ...appraisal,
+    } as WizardAppraisal;
+    this.wizardAppraisals.set(newAppraisal.id, newAppraisal);
+    return newAppraisal;
+  }
+
+  async getWizardAppraisal(id: string): Promise<WizardAppraisal | undefined> {
+    return this.wizardAppraisals.get(id);
+  }
+
+  async updateWizardAppraisal(id: string, updates: Partial<InsertWizardAppraisal>): Promise<WizardAppraisal | undefined> {
+    const existing = this.wizardAppraisals.get(id);
+    if (!existing) return undefined;
+    const updated = { ...existing, ...updates, updatedAt: new Date() } as WizardAppraisal;
+    this.wizardAppraisals.set(id, updated);
+    return updated;
+  }
+
+  async createPasswordResetToken(token: InsertPasswordResetToken): Promise<PasswordResetToken> {
+    const newToken: PasswordResetToken = {
+      id: randomUUID(),
+      createdAt: new Date(),
+      usedAt: null,
+      ...token,
+    } as PasswordResetToken;
+    this.passwordResetTokens.set(token.token, newToken);
+    return newToken;
+  }
+
+  async getPasswordResetToken(token: string): Promise<PasswordResetToken | undefined> {
+    return this.passwordResetTokens.get(token);
+  }
+
+  async markPasswordResetTokenUsed(token: string): Promise<void> {
+    const existing = this.passwordResetTokens.get(token);
+    if (existing) {
+      this.passwordResetTokens.set(token, { ...existing, usedAt: new Date() });
+    }
+  }
+
+  async updateUserPassword(userId: string, hashedPassword: string): Promise<void> {
+    const existing = this.users.get(userId);
+    if (existing) {
+      this.users.set(userId, { ...existing, password: hashedPassword });
+    }
+  }
+
+  async createGeorgiaAppraisal(appraisal: InsertGeorgiaAppraisal): Promise<GeorgiaAppraisal> {
+    const newAppraisal: GeorgiaAppraisal = {
+      id: randomUUID(),
+      createdAt: new Date(),
+      updatedAt: new Date(),
+      calculatedAt: null,
+      pdfGeneratedAt: null,
+      ...appraisal,
+    } as GeorgiaAppraisal;
+    this.georgiaAppraisals.set(newAppraisal.id, newAppraisal);
+    return newAppraisal;
+  }
+
+  async getGeorgiaAppraisal(id: string): Promise<GeorgiaAppraisal | undefined> {
+    return this.georgiaAppraisals.get(id);
+  }
+
+  async updateGeorgiaAppraisal(id: string, updates: Partial<InsertGeorgiaAppraisal> & { calculatedAt?: Date; pdfGeneratedAt?: Date }): Promise<GeorgiaAppraisal | undefined> {
+    const existing = this.georgiaAppraisals.get(id);
+    if (!existing) return undefined;
+    const updated = { ...existing, ...updates, updatedAt: new Date() } as GeorgiaAppraisal;
+    this.georgiaAppraisals.set(id, updated);
+    return updated;
+  }
+
+  async getGeorgiaAppraisalsByUser(userId: string): Promise<GeorgiaAppraisal[]> {
+    return Array.from(this.georgiaAppraisals.values())
+      .filter(a => a.userId === userId)
+      .sort((a, b) => (b.updatedAt?.getTime() ?? 0) - (a.updatedAt?.getTime() ?? 0));
+  }
+}
+
+// Use MemoryStorage when DB is unavailable (Vercel), DatabaseStorage otherwise
+export const storage: IStorage = db ? new DatabaseStorage() : new MemoryStorage();

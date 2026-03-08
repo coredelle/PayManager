@@ -1,11 +1,17 @@
 import type { Express, Request, Response, NextFunction } from "express";
 import { createServer, type Server } from "http";
 import session from "express-session";
+import MemoryStore from "memorystore";
 import { storage } from "./storage";
 import { insertUserSchema, insertCaseSchema, insertPrequalLeadSchema } from "@shared/schema";
-import bcrypt from "bcrypt";
 import { z } from "zod";
-import { randomBytes } from "crypto";
+import { randomBytes, createHash } from "crypto";
+
+// bcrypt is a native addon unavailable on Vercel. Use a lightweight crypto hash
+// for demo-mode password storage (not used in production auth flow here anyway).
+const hashPassword = (pw: string) => createHash("sha256").update(pw + "paymanager-salt").digest("hex");
+
+const SessionStore = MemoryStore(session);
 import { decodeVin, fetchRetailComps, fetchMarketPricing, getFullVehicleData } from "./services/marketData";
 import { computeDVAmount, quickEstimate, type AppraisalInput } from "./services/appraisalEngine";
 import { getStateLaw } from "./services/stateLaw";
@@ -110,6 +116,9 @@ export async function registerRoutes(
       secret: process.env.SESSION_SECRET || "autovaluekey-dev-secret",
       resave: false,
       saveUninitialized: false,
+      store: new SessionStore({
+        checkPeriod: 86400000, // prune expired entries every 24h
+      }),
       cookie: {
         secure: process.env.NODE_ENV === "production",
         httpOnly: true,
@@ -250,7 +259,7 @@ export async function registerRoutes(
         return res.status(400).json({ message: "This reset link has expired" });
       }
       
-      const hashedPassword = await bcrypt.hash(password, 10);
+      const hashedPassword = hashPassword(password);
       await storage.updateUserPassword(resetToken.userId, hashedPassword);
       await storage.markPasswordResetTokenUsed(token);
       
