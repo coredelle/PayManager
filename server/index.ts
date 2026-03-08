@@ -60,7 +60,18 @@ app.use((req, res, next) => {
 });
 
 (async () => {
-  await registerRoutes(httpServer, app);
+  try {
+    await registerRoutes(httpServer, app);
+  } catch (startupError: any) {
+    console.error("CRITICAL STARTUP ERROR", startupError);
+    app.all("*", (req, res) => {
+      res.status(500).json({
+        error: "CRITICAL STARTUP ERROR",
+        message: startupError?.message,
+        stack: startupError?.stack
+      });
+    });
+  }
 
   app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
     const status = err.status || err.statusCode || 500;
@@ -70,11 +81,12 @@ app.use((req, res, next) => {
     throw err;
   });
 
-  // importantly only setup vite in development and after
-  // setting up all the other routes so the catch-all route
-  // doesn't interfere with the other routes
   if (process.env.NODE_ENV === "production") {
-    serveStatic(app);
+    // Vercel handles static routing automatically using its CDN edge network.
+    // If not on Vercel, serve the built client files internally.
+    if (!process.env.VERCEL) {
+      serveStatic(app);
+    }
   } else {
     const { setupVite } = await import("./vite");
     await setupVite(httpServer, app);
