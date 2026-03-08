@@ -1,10 +1,20 @@
 import { PDFDocument, rgb, StandardFonts, PDFFont, PDFPage } from "pdf-lib";
-import sharp from "sharp";
+import { createRequire } from "module";
 import { readFileSync, existsSync } from "fs";
 import { join } from "path";
 import type { AppraisalInput, AppraisalComputationResult, ComparableListing, DamageCode } from "@shared/types/appraisal";
 import { buildGeorgiaLegalSections } from "../constants/georgiaLaw";
 import { getMultiViewDamagePoints, formatDamageAreas, DAMAGE_CODE_LABELS } from "../constants/damageMap";
+
+// sharp is a native addon unavailable on Vercel. Lazy-load it safely.
+let sharpLib: any = null;
+try {
+  const req = createRequire(import.meta.url);
+  sharpLib = req("sharp");
+} catch {
+  console.warn("sharp unavailable (expected on Vercel). SVG rendering disabled.");
+}
+
 
 const BRAND_COLOR = rgb(0.12, 0.23, 0.37);
 const ACCENT_COLOR = rgb(0.8, 0, 0);
@@ -54,8 +64,9 @@ function formatDate(dateStr: string): string {
 }
 
 async function svgToPng(svgPath: string, width: number, height: number): Promise<Buffer> {
+  if (!sharpLib) throw new Error("sharp not available");
   const svgBuffer = readFileSync(svgPath);
-  return sharp(svgBuffer)
+  return sharpLib(svgBuffer)
     .resize(width, height, { fit: "contain", background: { r: 255, g: 255, b: 255, alpha: 0 } })
     .png()
     .toBuffer();
@@ -114,7 +125,8 @@ async function createPlaceholderChart(): Promise<Buffer> {
     <rect width="400" height="250" fill="#f5f5f5"/>
     <text x="200" y="125" text-anchor="middle" fill="#666" font-size="14" font-family="Helvetica, Arial, sans-serif">Chart unavailable</text>
   </svg>`;
-  return sharp(Buffer.from(svg)).png().toBuffer();
+  if (!sharpLib) return Buffer.from(svg); // fallback: return SVG bytes directly
+  return sharpLib(Buffer.from(svg)).png().toBuffer();
 }
 
 function drawSectionHeader(page: PDFPage, fonts: FontSet, title: string, y: number): number {

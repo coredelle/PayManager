@@ -5,14 +5,30 @@
  * with proper legal citations, comparable vehicle tables, and transparent calculations.
  */
 
-import { chromium, Browser, Page } from "playwright";
+import { createRequire } from "module";
 import type { ComparableListing, ValuationResult, VINDataReport } from "./marketcheckClient";
 import { POST_ACCIDENT_FACTOR } from "./marketcheckClient";
 
-let browser: Browser | null = null;
+// playwright requires Chromium binaries that are unavailable on Vercel.
+// Lazy-load it only when actually needed, so module-level import doesn't crash startup.
+let playwrightLib: any = null;
+function getPlaywright() {
+  if (!playwrightLib) {
+    try {
+      const req = createRequire(import.meta.url);
+      playwrightLib = req("playwright");
+    } catch {
+      throw new Error("playwright is not available in this environment (Vercel). PDF generation requires a local/self-hosted deployment.");
+    }
+  }
+  return playwrightLib;
+}
 
-async function getBrowser(): Promise<Browser> {
+let browser: any = null;
+
+async function getBrowser(): Promise<any> {
   if (!browser) {
+    const { chromium } = getPlaywright();
     browser = await chromium.launch({
       headless: true,
       args: ["--no-sandbox", "--disable-setuid-sandbox"],
@@ -20,6 +36,7 @@ async function getBrowser(): Promise<Browser> {
   }
   return browser;
 }
+
 
 export interface AppraisalPdfInput {
   ownerName: string;
