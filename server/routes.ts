@@ -431,9 +431,9 @@ export async function registerRoutes(
       );
 
       const updated = updateMockCase(req.params.id, {
-        preAccidentValue: result.preAccidentValue.toString(),
-        postAccidentValue: result.postAccidentValue.toString(),
-        diminishedValueAmount: result.diminishedValue.toString(),
+        preAccidentValue: result.preAccidentValue,
+        postAccidentValue: result.postAccidentValue,
+        diminishedValueAmount: result.diminishedValue,
         calculationDetails: JSON.stringify(result.breakdown),
         status: "ready_for_download",
       });
@@ -703,16 +703,16 @@ export async function registerRoutes(
         drivetrain: vinData?.drivetrain || null,
         engineType: vinData?.engineType || null,
         evBatteryPack: vinData?.evBatteryPack || null,
-        marketCheckPrice: pricing.fairRetailPrice.toString(),
-        marketPriceRangeLow: pricing.priceRangeLow.toString(),
-        marketPriceRangeHigh: pricing.priceRangeHigh.toString(),
-        mileageAdjustedPrice: pricing.mileageAdjustedPrice.toString(),
+        marketCheckPrice: pricing.fairRetailPrice,
+        marketPriceRangeLow: pricing.priceRangeLow,
+        marketPriceRangeHigh: pricing.priceRangeHigh,
+        mileageAdjustedPrice: pricing.mileageAdjustedPrice,
         compsJson: JSON.stringify(compsResult.comps),
-        compMedianPrice: compMedianPrice?.toString() || null,
-        preAccidentValue: dvResult.preAccidentValue.toString(),
-        postAccidentValue: dvResult.postRepairValue.toString(),
-        diminishedValueAmount: dvResult.diminishedValue.toString(),
-        stigmaDeduction: dvResult.stigmaDeduction.toString(),
+        compMedianPrice: compMedianPrice || null,
+        preAccidentValue: dvResult.preAccidentValue,
+        postAccidentValue: dvResult.postRepairValue,
+        diminishedValueAmount: dvResult.diminishedValue,
+        stigmaDeduction: dvResult.stigmaDeduction,
         calculationDetails: dvResult.methodology,
         valuationSummaryJson: JSON.stringify(dvResult.breakdown),
         appraisalNarrative: narrative,
@@ -999,12 +999,14 @@ export async function registerRoutes(
         const repairCost = parseFloat(appraisal.repairCost || "0");
         const mileage = parseInt(appraisal.mileageAtLoss || "0");
         const vehicleYear = parseInt(appraisal.year || "0");
+        const state = (appraisal.accidentState as "GA" | "FL" | "NC" | "TX" | "CA") || "GA";
         appraisal.diminishedValue = calculateDiminishedValue(
           preValue,
           repairCost,
           mileage,
-          vehicleYear
-        ).toString();
+          vehicleYear,
+          state
+        ).diminishedValue.toString();
 
         // Update in memory storage
         memoryStorage.set(appraisalId, appraisal);
@@ -1161,12 +1163,12 @@ export async function registerRoutes(
 
       let updated;
       const updatePayload = {
-        cleanRetailPreAccident: valuationResult.marketcheckPricePre.toString(),
-        roughRetailPostAccident: valuationResult.postAccidentValue.toString(),
-        comparablesAvgRetail: valuationResult.avgCompPrice.toString(),
-        finalPreAccidentValue: valuationResult.finalPreAccidentValue.toString(),
-        postAccidentValue: valuationResult.postAccidentValue.toString(),
-        diminishedValue: valuationResult.diminishedValue.toString(),
+        cleanRetailPreAccident: valuationResult.marketcheckPricePre,
+        roughRetailPostAccident: valuationResult.postAccidentValue,
+        comparablesAvgRetail: valuationResult.avgCompPrice,
+        finalPreAccidentValue: valuationResult.finalPreAccidentValue,
+        postAccidentValue: valuationResult.postAccidentValue,
+        diminishedValue: valuationResult.diminishedValue,
         comparablesJson: JSON.stringify(valuationResult.selectedComps),
         mileageBandDescription: valuationResult.methodology,
         comparableFilterNotes: valuationResult.filteringLog.join("\n"),

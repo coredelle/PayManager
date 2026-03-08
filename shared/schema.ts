@@ -1,15 +1,15 @@
 import { sql } from "drizzle-orm";
-import { pgTable, text, varchar, integer, decimal, timestamp, pgEnum } from "drizzle-orm/pg-core";
+import { sqliteTable, text, integer, real } from "drizzle-orm/sqlite-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
 // Users table
-export const users = pgTable("users", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+export const users = sqliteTable("users", {
+  id: text("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
   email: text("email").notNull().unique(),
   password: text("password").notNull(),
   name: text("name"),
-  createdAt: timestamp("created_at").defaultNow().notNull(),
+  createdAt: integer("created_at", { mode: 'timestamp' }).$defaultFn(() => new Date()).notNull(),
 });
 
 export const insertUserSchema = createInsertSchema(users).omit({
@@ -21,17 +21,17 @@ export type InsertUser = z.infer<typeof insertUserSchema>;
 export type User = typeof users.$inferSelect;
 
 // Case types and status enums
-export const caseTypeEnum = pgEnum("case_type", ["diminished_value", "total_loss"]);
-export const caseStatusEnum = pgEnum("case_status", ["draft", "ready_for_download", "completed"]);
-export const stateEnum = pgEnum("state", ["GA", "FL", "NC"]);
+export const caseTypeEnum = ["diminished_value", "total_loss"] as const;
+export const caseStatusEnum = ["draft", "ready_for_download", "completed"] as const;
+export const stateEnum = ["GA", "FL", "NC"] as const;
 
 // Cases table - main appraisal cases
-export const cases = pgTable("cases", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  userId: varchar("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
-  caseType: caseTypeEnum("case_type").notNull(),
-  state: stateEnum("state").notNull(),
-  status: caseStatusEnum("status").notNull().default("draft"),
+export const cases = sqliteTable("cases", {
+  id: text("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
+  userId: text("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  caseType: text("case_type").notNull(),
+  state: text("state").notNull(),
+  status: text("status").notNull().default("draft"),
   
   // Claim information
   atFaultInsurerName: text("at_fault_insurer_name"),
@@ -56,7 +56,7 @@ export const cases = pgTable("cases", {
   bodyShopName: text("body_shop_name"),
   bodyShopPhone: text("body_shop_phone"),
   bodyShopAddress: text("body_shop_address"),
-  totalRepairCost: decimal("total_repair_cost", { precision: 10, scale: 2 }),
+  totalRepairCost: real("total_repair_cost"),
   keyImpactAreas: text("key_impact_areas"),
   repairSummary: text("repair_summary"),
   repairStartDate: text("repair_start_date"),
@@ -72,39 +72,39 @@ export const cases = pgTable("cases", {
   evBatteryPack: text("ev_battery_pack"),
   
   // Market pricing from MarketCheck API
-  marketCheckPrice: decimal("marketcheck_price", { precision: 10, scale: 2 }),
-  marketPriceRangeLow: decimal("market_price_range_low", { precision: 10, scale: 2 }),
-  marketPriceRangeHigh: decimal("market_price_range_high", { precision: 10, scale: 2 }),
-  mileageAdjustedPrice: decimal("mileage_adjusted_price", { precision: 10, scale: 2 }),
+  marketCheckPrice: real("marketcheck_price"),
+  marketPriceRangeLow: real("market_price_range_low"),
+  marketPriceRangeHigh: real("market_price_range_high"),
+  mileageAdjustedPrice: real("mileage_adjusted_price"),
   
   // Comparable listings from MarketData API
   compsJson: text("comps_json"),
-  compMedianPrice: decimal("comp_median_price", { precision: 10, scale: 2 }),
+  compMedianPrice: real("comp_median_price"),
   
   // Legacy valuation inputs (retained for compatibility)
-  blackBookCleanRetail: decimal("blackbook_clean_retail", { precision: 10, scale: 2 }),
-  blackBookRoughRetail: decimal("blackbook_rough_retail", { precision: 10, scale: 2 }),
-  thirdPartyPreAccidentValue: decimal("third_party_pre_accident_value", { precision: 10, scale: 2 }),
-  thirdPartyPostAccidentValue: decimal("third_party_post_accident_value", { precision: 10, scale: 2 }),
+  blackBookCleanRetail: real("blackbook_clean_retail"),
+  blackBookRoughRetail: real("blackbook_rough_retail"),
+  thirdPartyPreAccidentValue: real("third_party_pre_accident_value"),
+  thirdPartyPostAccidentValue: real("third_party_post_accident_value"),
   userNotes: text("user_notes"),
   marketNotes: text("market_notes"),
   
   // Valuation results
-  preAccidentValue: decimal("pre_accident_value", { precision: 10, scale: 2 }),
-  postAccidentValue: decimal("post_accident_value", { precision: 10, scale: 2 }),
-  diminishedValueAmount: decimal("diminished_value_amount", { precision: 10, scale: 2 }),
-  stigmaDeduction: decimal("stigma_deduction", { precision: 10, scale: 2 }),
+  preAccidentValue: real("pre_accident_value"),
+  postAccidentValue: real("post_accident_value"),
+  diminishedValueAmount: real("diminished_value_amount"),
+  stigmaDeduction: real("stigma_deduction"),
   calculationDetails: text("calculation_details"),
   valuationSummaryJson: text("valuation_summary_json"),
-  calculatedAt: timestamp("calculated_at"),
+  calculatedAt: integer("calculated_at", { mode: 'timestamp' }),
   
   // AI-generated content
   appraisalNarrative: text("appraisal_narrative"),
   demandLetter: text("demand_letter"),
-  narrativeGeneratedAt: timestamp("narrative_generated_at"),
+  narrativeGeneratedAt: integer("narrative_generated_at", { mode: 'timestamp' }),
   
-  createdAt: timestamp("created_at").defaultNow().notNull(),
-  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  createdAt: integer("created_at", { mode: 'timestamp' }).$defaultFn(() => new Date()).notNull(),
+  updatedAt: integer("updated_at", { mode: 'timestamp' }).$defaultFn(() => new Date()).notNull(),
 });
 
 export const insertCaseSchema = createInsertSchema(cases).omit({
@@ -118,23 +118,23 @@ export type InsertCase = z.infer<typeof insertCaseSchema>;
 export type Case = typeof cases.$inferSelect;
 
 // Pre-qualification leads - from the free estimate form
-export const prequalLeads = pgTable("prequal_leads", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+export const prequalLeads = sqliteTable("prequal_leads", {
+  id: text("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
   year: integer("year").notNull(),
   make: text("make").notNull(),
   model: text("model").notNull(),
   mileage: integer("mileage").notNull(),
-  state: stateEnum("state").notNull(),
+  state: text("state").notNull(),
   fault: text("fault").notNull(), // "not_at_fault", "at_fault", "unsure"
   
   // Calculated estimate
-  estimateMin: decimal("estimate_min", { precision: 10, scale: 2 }),
-  estimateMax: decimal("estimate_max", { precision: 10, scale: 2 }),
+  estimateMin: real("estimate_min"),
+  estimateMax: real("estimate_max"),
   
   // Optional - if they convert to full case
-  convertedToCaseId: varchar("converted_to_case_id").references(() => cases.id),
+  convertedToCaseId: text("converted_to_case_id").references(() => cases.id),
   
-  createdAt: timestamp("created_at").defaultNow().notNull(),
+  createdAt: integer("created_at", { mode: 'timestamp' }).$defaultFn(() => new Date()).notNull(),
 });
 
 export const insertPrequalLeadSchema = createInsertSchema(prequalLeads).omit({
@@ -146,8 +146,8 @@ export type InsertPrequalLead = z.infer<typeof insertPrequalLeadSchema>;
 export type PrequalLead = typeof prequalLeads.$inferSelect;
 
 // Wizard appraisals - from the appraisal wizard flow
-export const wizardAppraisals = pgTable("wizard_appraisals", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+export const wizardAppraisals = sqliteTable("wizard_appraisals", {
+  id: text("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
   email: text("email").notNull(),
 
   year: text("year").notNull(),
@@ -181,7 +181,7 @@ export const wizardAppraisals = pgTable("wizard_appraisals", {
   stripeCheckoutSessionId: text("stripe_checkout_session_id"),
   stripePaymentStatus: text("stripe_payment_status"),
   
-  createdAt: timestamp("created_at").defaultNow().notNull(),
+  createdAt: integer("created_at", { mode: 'timestamp' }).$defaultFn(() => new Date()).notNull(),
 });
 
 export const insertWizardAppraisalSchema = createInsertSchema(wizardAppraisals).omit({
@@ -193,13 +193,13 @@ export type InsertWizardAppraisal = z.infer<typeof insertWizardAppraisalSchema>;
 export type WizardAppraisal = typeof wizardAppraisals.$inferSelect;
 
 // Password reset tokens
-export const passwordResetTokens = pgTable("password_reset_tokens", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  userId: varchar("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+export const passwordResetTokens = sqliteTable("password_reset_tokens", {
+  id: text("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
+  userId: text("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
   token: text("token").notNull().unique(),
-  expiresAt: timestamp("expires_at").notNull(),
-  usedAt: timestamp("used_at"),
-  createdAt: timestamp("created_at").defaultNow().notNull(),
+  expiresAt: integer("expires_at", { mode: 'timestamp' }).notNull(),
+  usedAt: integer("used_at", { mode: 'timestamp' }),
+  createdAt: integer("created_at", { mode: 'timestamp' }).$defaultFn(() => new Date()).notNull(),
 });
 
 export const insertPasswordResetTokenSchema = createInsertSchema(passwordResetTokens).omit({
@@ -211,12 +211,12 @@ export type InsertPasswordResetToken = z.infer<typeof insertPasswordResetTokenSc
 export type PasswordResetToken = typeof passwordResetTokens.$inferSelect;
 
 // Negotiation chat messages
-export const chatMessages = pgTable("chat_messages", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  caseId: varchar("case_id").notNull().references(() => cases.id, { onDelete: "cascade" }),
+export const chatMessages = sqliteTable("chat_messages", {
+  id: text("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
+  caseId: text("case_id").notNull().references(() => cases.id, { onDelete: "cascade" }),
   role: text("role").notNull(), // "user" or "assistant"
   content: text("content").notNull(),
-  createdAt: timestamp("created_at").defaultNow().notNull(),
+  createdAt: integer("created_at", { mode: 'timestamp' }).$defaultFn(() => new Date()).notNull(),
 });
 
 export const insertChatMessageSchema = createInsertSchema(chatMessages).omit({
@@ -228,11 +228,11 @@ export type InsertChatMessage = z.infer<typeof insertChatMessageSchema>;
 export type ChatMessage = typeof chatMessages.$inferSelect;
 
 // Georgia appraisals - new professional appraisal system
-export const accidentHistoryEnum = pgEnum("accident_history", ["clean", "prior_damage", "unknown"]);
+export const accidentHistoryEnum = ["clean", "prior_damage", "unknown"] as const;
 
-export const georgiaAppraisals = pgTable("georgia_appraisals", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  userId: varchar("user_id").references(() => users.id, { onDelete: "set null" }),
+export const georgiaAppraisals = sqliteTable("georgia_appraisals", {
+  id: text("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
+  userId: text("user_id").references(() => users.id, { onDelete: "set null" }),
 
   ownerName: text("owner_name").notNull(),
   ownerAddress: text("owner_address").notNull(),
@@ -247,7 +247,7 @@ export const georgiaAppraisals = pgTable("georgia_appraisals", {
   licensePlate: text("license_plate"),
   stateOfRegistration: text("state_of_registration").notNull(),
   mileage: integer("mileage").notNull(),
-  accidentHistory: accidentHistoryEnum("accident_history").notNull().default("unknown"),
+  accidentHistory: text("accident_history").notNull().default("unknown"),
   isLeased: integer("is_leased").notNull().default(0),
   ownershipType: text("ownership_type").default("owner"),
 
@@ -263,30 +263,30 @@ export const georgiaAppraisals = pgTable("georgia_appraisals", {
   repairCenterAddress: text("repair_center_address"),
   repairDropOffDate: text("repair_drop_off_date"),
   repairPickupDate: text("repair_pickup_date"),
-  totalRepairCost: decimal("total_repair_cost", { precision: 10, scale: 2 }),
+  totalRepairCost: real("total_repair_cost"),
 
   damageDescription: text("damage_description"),
   keyImpactAreas: text("key_impact_areas"),
 
-  cleanRetailPreAccident: decimal("clean_retail_pre_accident", { precision: 10, scale: 2 }),
-  roughRetailPostAccident: decimal("rough_retail_post_accident", { precision: 10, scale: 2 }),
-  comparablesAvgRetail: decimal("comparables_avg_retail", { precision: 10, scale: 2 }),
-  finalPreAccidentValue: decimal("final_pre_accident_value", { precision: 10, scale: 2 }),
-  postAccidentValue: decimal("post_accident_value", { precision: 10, scale: 2 }),
-  diminishedValue: decimal("diminished_value", { precision: 10, scale: 2 }),
+  cleanRetailPreAccident: real("clean_retail_pre_accident"),
+  roughRetailPostAccident: real("rough_retail_post_accident"),
+  comparablesAvgRetail: real("comparables_avg_retail"),
+  finalPreAccidentValue: real("final_pre_accident_value"),
+  postAccidentValue: real("post_accident_value"),
+  diminishedValue: real("diminished_value"),
 
   comparablesJson: text("comparables_json"),
   mileageBandDescription: text("mileage_band_description"),
   comparableFilterNotes: text("comparable_filter_notes"),
 
-  calculatedAt: timestamp("calculated_at"),
-  pdfGeneratedAt: timestamp("pdf_generated_at"),
+  calculatedAt: integer("calculated_at", { mode: 'timestamp' }),
+  pdfGeneratedAt: integer("pdf_generated_at", { mode: 'timestamp' }),
 
   stripeCheckoutSessionId: text("stripe_checkout_session_id"),
   stripePaymentStatus: text("stripe_payment_status"),
 
-  createdAt: timestamp("created_at").defaultNow().notNull(),
-  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  createdAt: integer("created_at", { mode: 'timestamp' }).$defaultFn(() => new Date()).notNull(),
+  updatedAt: integer("updated_at", { mode: 'timestamp' }).$defaultFn(() => new Date()).notNull(),
 });
 
 export const insertGeorgiaAppraisalSchema = createInsertSchema(georgiaAppraisals).omit({
